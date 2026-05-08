@@ -62,7 +62,7 @@ function SplashScreen() {
   );
 }
 
-function HomeScreen({ xp, streak, onStart, completedModules, onDashboard }) {
+function HomeScreen({ xp, streak, onStart, completedModules, onDashboard, onPractice }) {
   var rank = getRank(xp);
   var nextXP = xp >= 200 ? 200 : xp >= 100 ? 200 : 100;
   var pct = Math.min((xp / nextXP) * 100, 100);
@@ -140,6 +140,14 @@ function HomeScreen({ xp, streak, onStart, completedModules, onDashboard }) {
             })}
           </View>
         </View>
+
+        <TouchableOpacity style={s.practiceBtn} onPress={onPractice} activeOpacity={0.8}>
+          <Text style={s.practiceBtnIcon}>🎯</Text>
+          <View>
+            <Text style={s.practiceBtnTitle}>Practice Mode</Text>
+            <Text style={s.practiceBtnSub}>5 random questions from all modules</Text>
+          </View>
+        </TouchableOpacity>
 
       </ScrollView>
     </SafeAreaView>
@@ -481,10 +489,21 @@ export default function App() {
 
   function startLesson(mod) { setActiveModule(mod); setScreen("lesson"); }
 
+  function startPractice() {
+    var indices = QUESTIONS.map(function(_, i) { return i; });
+    for (var i = indices.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = indices[i]; indices[i] = indices[j]; indices[j] = tmp;
+    }
+    startLesson({ id: "practice", title: "Practice Mode", icon: "🎯", questions: indices.slice(0, 5), color: T.orange, desc: "Random mix from all modules" });
+  }
+
   function finishLesson(earned, correct, total) {
     setXP(function(prev) { return prev + earned; });
-    setCompletedModules(function(prev) { return prev.indexOf(activeModule.id) === -1 ? prev.concat([activeModule.id]) : prev; });
-    setModuleXP(function(prev) { return Object.assign({}, prev, { [activeModule.id]: (prev[activeModule.id] || 0) + earned }); });
+    if (activeModule.id !== "practice") {
+      setCompletedModules(function(prev) { return prev.indexOf(activeModule.id) === -1 ? prev.concat([activeModule.id]) : prev; });
+      setModuleXP(function(prev) { return Object.assign({}, prev, { [activeModule.id]: (prev[activeModule.id] || 0) + earned }); });
+    }
     setLessonResult({ correct: correct, total: total, xpEarned: earned, moduleName: activeModule.title });
     setScreen("result");
   }
@@ -495,7 +514,7 @@ export default function App() {
   if (screen === "lesson") return <LessonScreen module={activeModule} onComplete={finishLesson} onExit={goHome} />;
   if (screen === "result") return <ResultScreen correct={lessonResult.correct} total={lessonResult.total} xpEarned={lessonResult.xpEarned} moduleName={lessonResult.moduleName} onHome={goHome} />;
   if (screen === "dashboard") return <DashboardScreen xp={xp} completedModules={completedModules} moduleXP={moduleXP} onBack={goHome} />;
-  return <HomeScreen xp={xp} streak={streak} onStart={startLesson} completedModules={completedModules} onDashboard={function() { setScreen("dashboard"); }} />;
+  return <HomeScreen xp={xp} streak={streak} onStart={startLesson} completedModules={completedModules} onDashboard={function() { setScreen("dashboard"); }} onPractice={startPractice} />;
 }
 
 const s = StyleSheet.create({
@@ -587,6 +606,11 @@ const s = StyleSheet.create({
 
   dashboardBtn: { backgroundColor: T.card, borderRadius: 14, paddingVertical: 13, marginBottom: 20, alignItems: "center", borderWidth: 1, borderColor: T.border },
   dashboardBtnText: { color: T.text2, fontWeight: "700", fontSize: 14 },
+
+  practiceBtn: { flexDirection: "row", alignItems: "center", backgroundColor: T.orange + "15", borderRadius: 16, padding: 18, marginTop: 12, borderWidth: 1.5, borderColor: T.orange + "66", gap: 14 },
+  practiceBtnIcon: { fontSize: 32 },
+  practiceBtnTitle: { fontSize: 16, fontWeight: "800", color: T.orange, marginBottom: 2 },
+  practiceBtnSub: { fontSize: 12, color: T.text2 },
 
   dashHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, backgroundColor: T.bg },
   dashTitle: { fontSize: 17, fontWeight: "800", color: T.text },
