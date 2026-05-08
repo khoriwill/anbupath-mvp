@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
 
 const T = {
@@ -11,15 +11,25 @@ const T = {
 const QUESTIONS = [
   { id: 1, question: "A project manager notices the team is consistently missing deadlines. What should they do FIRST?", options: ["Escalate to the sponsor immediately", "Identify the root cause of the delays", "Add more resources to the project", "Update the project schedule"], correct: 1, explanation: "Always identify root cause first. Adding resources or escalating without understanding WHY delays happen will not fix the problem.", xp: 10 },
   { id: 2, question: "What does the Critical Path represent in project management?", options: ["The most expensive tasks in the project", "Tasks that require the most resources", "The longest sequence of dependent tasks that determines project duration", "Tasks assigned to senior team members"], correct: 2, explanation: "The Critical Path is the longest sequence of dependent tasks. Any delay on the critical path directly delays the entire project end date.", xp: 10 },
-  { id: 3, question: "A stakeholder requests a major scope change mid-project. What is the CORRECT response?", options: ["Implement it immediately to keep the stakeholder happy", "Reject it - scope cannot change once the project starts", "Submit it through the Integrated Change Control process", "Add it to the backlog for the next project"], correct: 2, explanation: "All changes go through Integrated Change Control. This ensures impacts on scope, schedule, cost, and quality are analyzed before any change is approved.", xp: 15 },
-  { id: 4, question: "What is the PRIMARY purpose of a project charter?", options: ["To define detailed project tasks and timelines", "To formally authorize the project and the project manager", "To list all project risks and mitigation strategies", "To document the project budget breakdown"], correct: 1, explanation: "The project charter formally authorizes the project to exist and gives the PM authority to apply organizational resources. It is the project birth certificate.", xp: 10 },
-  { id: 5, question: "What does CPI of 0.85 mean for your project?", options: ["The project is ahead of schedule", "For every dollar spent you are getting 85 cents of value", "The project is 85 percent complete", "The project has 85 percent stakeholder satisfaction"], correct: 1, explanation: "CPI equals Earned Value divided by Actual Cost. A CPI of 0.85 means you are only getting 85 cents of work done for every dollar spent. Under 1.0 means over budget.", xp: 15 },
+  { id: 3, question: "What is the PRIMARY purpose of a project charter?", options: ["To define detailed project tasks and timelines", "To formally authorize the project and the project manager", "To list all project risks and mitigation strategies", "To document the project budget breakdown"], correct: 1, explanation: "The project charter formally authorizes the project to exist and gives the PM authority to apply organizational resources. It is the project birth certificate.", xp: 10 },
+  { id: 4, question: "Which document formally defines the project scope, deliverables, and boundaries?", options: ["Project charter", "Scope management plan", "Scope statement", "WBS dictionary"], correct: 2, explanation: "The scope statement formally defines what is and is not included in the project. It is the foundation for all scope decisions going forward.", xp: 10 },
+  { id: 5, question: "A project sponsor asks you to start work before the project charter is signed. What do you do?", options: ["Start immediately to show responsiveness", "Refuse and explain the charter must be signed first", "Start planning but not executing", "Escalate to the PMO"], correct: 1, explanation: "Without a signed charter the project is not formally authorized. Starting work without authorization puts the project and PM at risk.", xp: 15 },
+  { id: 6, question: "What does CPI of 0.85 mean for your project?", options: ["The project is ahead of schedule", "For every dollar spent you are getting 85 cents of value", "The project is 85 percent complete", "The project has 85 percent stakeholder satisfaction"], correct: 1, explanation: "CPI equals Earned Value divided by Actual Cost. A CPI of 0.85 means you are only getting 85 cents of work done for every dollar spent. Under 1.0 means over budget.", xp: 15 },
+  { id: 7, question: "A stakeholder requests a major scope change mid-project. What is the CORRECT response?", options: ["Implement it immediately to keep the stakeholder happy", "Reject it - scope cannot change once the project starts", "Submit it through the Integrated Change Control process", "Add it to the backlog for the next project"], correct: 2, explanation: "All changes go through Integrated Change Control. This ensures impacts on scope, schedule, cost, and quality are analyzed before any change is approved.", xp: 15 },
+  { id: 8, question: "Your SPI is 1.2. What does this tell you?", options: ["The project is over budget", "The project is ahead of schedule", "The project is behind schedule", "The project is under budget"], correct: 1, explanation: "SPI equals Earned Value divided by Planned Value. An SPI above 1.0 means you are completing more work than planned. The project is ahead of schedule.", xp: 15 },
+  { id: 9, question: "What is the purpose of a Work Breakdown Structure?", options: ["To assign tasks to team members", "To decompose project scope into manageable work packages", "To create the project schedule", "To identify project risks"], correct: 1, explanation: "The WBS breaks down the total project scope into smaller, manageable work packages. It is the foundation for scheduling, costing, and resource planning.", xp: 10 },
+  { id: 10, question: "Which scheduling technique uses optimistic, pessimistic, and most likely estimates?", options: ["Critical Path Method", "PERT", "Gantt Chart", "Kanban"], correct: 1, explanation: "PERT (Program Evaluation and Review Technique) uses three-point estimates to calculate expected duration and account for uncertainty in scheduling.", xp: 15 },
+  { id: 11, question: "Which conflict resolution technique leads to the BEST long-term outcomes on project teams?", options: ["Smoothing - minimize the conflict to keep peace", "Forcing - use authority to make a decision", "Withdrawing - avoid the conflict entirely", "Collaborating - work together to find a solution"], correct: 3, explanation: "Collaborating is the best technique. Both parties work together to find a solution that satisfies everyone. It builds trust and long-term team health.", xp: 10 },
+  { id: 12, question: "What is the difference between quality assurance and quality control?", options: ["QA checks the final product, QC prevents defects during the process", "QA is process-focused and preventive, QC is product-focused and detective", "QA is done by the team, QC is done by external auditors", "There is no difference"], correct: 1, explanation: "QA is process-oriented and prevents defects by auditing processes. QC is product-oriented and detects defects in deliverables. Prevention before inspection.", xp: 15 },
+  { id: 13, question: "A team member says they disagree with a decision but will support it. This is an example of:", options: ["Smoothing", "Compromise", "Consent", "Consensus"], correct: 3, explanation: "Consensus means everyone can live with the decision and agrees to support it even if it was not their first choice. This is the gold standard for team decision making.", xp: 10 },
+  { id: 14, question: "What is the RACI matrix used for?", options: ["Tracking project costs", "Defining roles and responsibilities", "Managing project risks", "Scheduling project tasks"], correct: 1, explanation: "RACI stands for Responsible, Accountable, Consulted, and Informed. It clarifies who does what on a project and prevents confusion about ownership.", xp: 10 },
+  { id: 15, question: "A key team member resigns mid-project. What should the PM do FIRST?", options: ["Immediately hire a replacement", "Assess the impact on the project schedule and deliverables", "Escalate to the project sponsor", "Redistribute the work among remaining team members"], correct: 1, explanation: "Always assess impact first. Understanding how the departure affects scope, schedule, and quality allows the PM to make informed decisions about next steps.", xp: 15 },
 ];
 
 const MODULES = [
-  { id: 1, title: "Project Initiation", icon: "🏁", questions: [0, 1], color: T.blue },
-  { id: 2, title: "Planning and Scheduling", icon: "📅", questions: [2, 3], color: T.purple },
-  { id: 3, title: "Team and Stakeholders", icon: "👥", questions: [4], color: T.green },
+  { id: 1, title: "Project Initiation", icon: "🏁", questions: [0, 1, 2, 3, 4], color: T.blue },
+  { id: 2, title: "Planning and Scheduling", icon: "📅", questions: [5, 6, 7, 8, 9], color: T.purple },
+  { id: 3, title: "Team and Stakeholders", icon: "👥", questions: [10, 11, 12, 13, 14], color: T.green },
 ];
 
 function HomeScreen({ xp, streak, onStart, completedModules }) {
@@ -186,12 +196,18 @@ function ResultScreen({ correct, total, xpEarned, moduleName, onHome }) {
 }
 
 export default function App() {
-  var [screen, setScreen] = useState('home');
+  var [screen, setScreen] = useState('splash');
   var [activeModule, setActiveModule] = useState(null);
   var [xp, setXP] = useState(0);
   var [streak] = useState(1);
   var [completedModules, setCompletedModules] = useState([]);
   var [lessonResult, setLessonResult] = useState(null);
+
+  useEffect(function() {
+    if (screen === 'splash') {
+      setTimeout(function() { setScreen('home'); }, 2500);
+    }
+  }, [screen]);
 
   function startLesson(mod) { setActiveModule(mod); setScreen('lesson'); }
 
@@ -204,6 +220,14 @@ export default function App() {
 
   function goHome() { setScreen('home'); setActiveModule(null); setLessonResult(null); }
 
+  if (screen === 'splash') return (
+    <SafeAreaView style={[s.safe, { alignItems: 'center', justifyContent: 'center' }]}>
+      <Text style={{ fontSize: 64, marginBottom: 16 }}>⚡</Text>
+      <Text style={{ fontSize: 40, fontWeight: '800', color: T.text, marginBottom: 8 }}>AnbuPath</Text>
+      <Text style={{ fontSize: 16, color: T.accent, fontWeight: '700', marginBottom: 4 }}>Train Hard. Cert Smart.</Text>
+      <Text style={{ fontSize: 13, color: T.text2, marginTop: 8 }}>Level Up.</Text>
+    </SafeAreaView>
+  );
   if (screen === 'lesson') return <LessonScreen module={activeModule} onComplete={finishLesson} onExit={goHome} />;
   if (screen === 'result') return <ResultScreen correct={lessonResult.correct} total={lessonResult.total} xpEarned={lessonResult.xpEarned} moduleName={lessonResult.moduleName} onHome={goHome} />;
   return <HomeScreen xp={xp} streak={streak} onStart={startLesson} completedModules={completedModules} />;
