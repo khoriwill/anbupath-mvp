@@ -1,5 +1,6 @@
 
 import { useState, useRef, useEffect } from 'react';
+import * as Haptics from 'expo-haptics';
 import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, ScrollView, Animated } from 'react-native';
 
 const T = {
@@ -185,8 +186,10 @@ function LessonScreen({ module, onComplete, onExit }) {
       setEarnedXP(function(prev) { return prev + q.xp; });
       setCorrect(function(prev) { return prev + 1; });
       animateCorrect();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } else {
       animateWrong();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
   }
 
