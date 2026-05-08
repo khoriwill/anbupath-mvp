@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "anbupath",
-    "slug": "anbupath",
+    "name": "CertForge",
+    "slug": "certforge",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",

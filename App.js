@@ -39,7 +39,7 @@ function HomeScreen({ xp, streak, onStart, completedModules }) {
         <View style={s.header}>
           <View>
             <Text style={s.greeting}>Welcome back</Text>
-            <Text style={s.username}>Shinobi</Text>
+           <Text style={s.username}>Forger</Text>
           </View>
           <View style={s.streakBadge}>
             <Text style={s.streakFire}>🔥</Text>
@@ -223,8 +223,8 @@ export default function App() {
   if (screen === 'splash') return (
     <SafeAreaView style={[s.safe, { alignItems: 'center', justifyContent: 'center' }]}>
       <Text style={{ fontSize: 64, marginBottom: 16 }}>⚡</Text>
-      <Text style={{ fontSize: 40, fontWeight: '800', color: T.text, marginBottom: 8 }}>AnbuPath</Text>
-      <Text style={{ fontSize: 16, color: T.accent, fontWeight: '700', marginBottom: 4 }}>Train Hard. Cert Smart.</Text>
+     <Text style={{ fontSize: 40, fontWeight: '800', color: T.text, marginBottom: 8 }}>CertForge</Text>
+<Text style={{ fontSize: 16, color: T.accent, fontWeight: '700', marginBottom: 4 }}>Forge Your Certification.</Text>
       <Text style={{ fontSize: 13, color: T.text2, marginTop: 8 }}>Level Up.</Text>
     </SafeAreaView>
   );
