@@ -271,6 +271,56 @@ function LessonScreen({ module, onComplete, onExit }) {
   );
 }
 
+var CONFETTI_COLORS = [T.accent, T.gold, T.green, T.blue, T.purple, T.orange, T.green, T.gold];
+
+function ConfettiBurst() {
+  var dots = useRef(
+    CONFETTI_COLORS.map(function(color, i) {
+      var angle = (i / CONFETTI_COLORS.length) * 2 * Math.PI;
+      var radius = 130;
+      return {
+        x: new Animated.Value(0),
+        y: new Animated.Value(0),
+        opacity: new Animated.Value(1),
+        tx: Math.cos(angle) * radius,
+        ty: Math.sin(angle) * radius,
+        color: color,
+      };
+    })
+  ).current;
+
+  useEffect(function() {
+    Animated.parallel(
+      dots.map(function(dot) {
+        return Animated.parallel([
+          Animated.timing(dot.x, { toValue: dot.tx, duration: 800, useNativeDriver: true }),
+          Animated.timing(dot.y, { toValue: dot.ty, duration: 800, useNativeDriver: true }),
+          Animated.sequence([
+            Animated.delay(600),
+            Animated.timing(dot.opacity, { toValue: 0, duration: 400, useNativeDriver: true }),
+          ]),
+        ]);
+      })
+    ).start();
+  }, []);
+
+  return (
+    <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { alignItems: "center", justifyContent: "center" }]}>
+      {dots.map(function(dot, i) {
+        return (
+          <Animated.View key={i} style={{
+            position: "absolute",
+            width: 12, height: 12, borderRadius: 6,
+            backgroundColor: dot.color,
+            opacity: dot.opacity,
+            transform: [{ translateX: dot.x }, { translateY: dot.y }],
+          }} />
+        );
+      })}
+    </View>
+  );
+}
+
 function ResultScreen({ correct, total, xpEarned, moduleName, onHome }) {
   var pct = Math.round((correct / total) * 100);
   var passed = pct >= 70;
@@ -280,6 +330,7 @@ function ResultScreen({ correct, total, xpEarned, moduleName, onHome }) {
   }, []);
   return (
     <SafeAreaView style={[s.safe, s.center]}>
+      {passed && <ConfettiBurst />}
       <Animated.View style={[s.resultContainer, { transform: [{ scale: scaleAnim }] }]}>
         <Text style={s.resultEmoji}>{pct === 100 ? "🏆" : passed ? "⚒️" : "💪"}</Text>
         <Text style={s.resultTitle}>{pct === 100 ? "Forged to Perfection!" : passed ? "Module Forged!" : "Keep Forging!"}</Text>
