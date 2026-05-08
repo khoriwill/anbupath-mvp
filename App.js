@@ -61,7 +61,7 @@ function SplashScreen() {
   );
 }
 
-function HomeScreen({ xp, streak, onStart, completedModules }) {
+function HomeScreen({ xp, streak, onStart, completedModules, onDashboard }) {
   var rank = getRank(xp);
   var nextXP = xp >= 200 ? 200 : xp >= 100 ? 200 : 100;
   var pct = Math.min((xp / nextXP) * 100, 100);
@@ -100,6 +100,10 @@ function HomeScreen({ xp, streak, onStart, completedModules }) {
             <Text style={s.rankSub}>Master</Text>
           </View>
         </View>
+
+        <TouchableOpacity style={s.dashboardBtn} onPress={onDashboard} activeOpacity={0.8}>
+          <Text style={s.dashboardBtnText}>📊 View Progress Dashboard</Text>
+        </TouchableOpacity>
 
         <View style={s.sectionHeader}>
           <Text style={s.sectionTitle}>⚒️ PMP Foundations</Text>
@@ -304,6 +308,107 @@ function ResultScreen({ correct, total, xpEarned, moduleName, onHome }) {
   );
 }
 
+function DashboardScreen({ xp, completedModules, moduleXP, onBack }) {
+  var rank = getRank(xp);
+  var nextThreshold = xp >= 200 ? 200 : xp >= 100 ? 200 : 100;
+  var prevThreshold = xp >= 200 ? 100 : 0;
+  var rankPct = Math.min(((xp - prevThreshold) / (nextThreshold - prevThreshold)) * 100, 100);
+  var nextRank = xp >= 200 ? null : xp >= 100 ? { title: "Master", color: T.gold } : { title: "Journeyman", color: T.purple };
+  var overallPct = MODULES.length > 0 ? Math.round((completedModules.length / MODULES.length) * 100) : 0;
+  var totalPossibleXP = MODULES.reduce(function(sum, mod) {
+    return sum + mod.questions.reduce(function(a, i) { return a + QUESTIONS[i].xp; }, 0);
+  }, 0);
+
+  var scaleAnim = useRef(new Animated.Value(0)).current;
+  useEffect(function() {
+    Animated.spring(scaleAnim, { toValue: 1, tension: 60, friction: 8, useNativeDriver: true }).start();
+  }, []);
+
+  return (
+    <SafeAreaView style={s.safe}>
+      <View style={s.dashHeader}>
+        <TouchableOpacity onPress={onBack} style={s.exitBtn}>
+          <Text style={s.exitText}>✕</Text>
+        </TouchableOpacity>
+        <Text style={s.dashTitle}>Progress Dashboard</Text>
+        <View style={{ width: 34 }} />
+      </View>
+
+      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+
+        <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+
+          <View style={s.dashOverallCard}>
+            <Text style={s.dashCardLabel}>Overall Completion</Text>
+            <Text style={s.dashBigPct}>{overallPct}%</Text>
+            <View style={s.xpBarBg}>
+              <View style={[s.xpBarFill, { width: overallPct + "%", backgroundColor: T.accent }]} />
+            </View>
+            <Text style={s.dashCardSub}>{completedModules.length} of {MODULES.length} modules complete</Text>
+          </View>
+
+          <View style={s.dashRankCard}>
+            <View style={s.rankRow}>
+              <View>
+                <Text style={s.rankLabel}>Current Rank</Text>
+                <Text style={[s.rankTitle, { color: rank.color }]}>{rank.title}</Text>
+              </View>
+              <View style={{ alignItems: "flex-end" }}>
+                <Text style={s.xpLabel}>Total XP</Text>
+                <Text style={[s.xpValue, { color: T.gold }]}>{xp} / {totalPossibleXP} XP</Text>
+              </View>
+            </View>
+            <View style={s.xpBarBg}>
+              <View style={[s.xpBarFill, { width: rankPct + "%", backgroundColor: rank.color }]} />
+            </View>
+            {nextRank ? (
+              <Text style={s.dashRankHint}>
+                {nextThreshold - xp} XP to reach <Text style={{ color: nextRank.color, fontWeight: "700" }}>{nextRank.title}</Text>
+              </Text>
+            ) : (
+              <Text style={[s.dashRankHint, { color: T.gold }]}>Maximum rank achieved. 🏆</Text>
+            )}
+          </View>
+
+          <Text style={s.dashSectionTitle}>Module Breakdown</Text>
+
+          {MODULES.map(function(mod) {
+            var done = completedModules.indexOf(mod.id) !== -1;
+            var earned = moduleXP[mod.id] || 0;
+            var possible = mod.questions.reduce(function(a, i) { return a + QUESTIONS[i].xp; }, 0);
+            var barPct = possible > 0 ? (earned / possible) * 100 : 0;
+            return (
+              <View key={mod.id} style={[s.dashModuleCard, done && { borderColor: mod.color + "66" }]}>
+                <View style={s.dashModuleTop}>
+                  <View style={[s.moduleIconWrap, { backgroundColor: mod.color + "22" }]}>
+                    <Text style={s.moduleIconText}>{done ? mod.icon : "🔒"}</Text>
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={s.moduleName}>{mod.title}</Text>
+                    <Text style={s.moduleDesc}>{mod.desc}</Text>
+                  </View>
+                  <View style={{ alignItems: "flex-end" }}>
+                    <Text style={[s.dashModuleXP, { color: done ? T.gold : T.text2 }]}>{earned} XP</Text>
+                    <Text style={s.dashModulePossible}>of {possible}</Text>
+                  </View>
+                </View>
+                <View style={s.xpBarBg}>
+                  <View style={[s.xpBarFill, { width: barPct + "%", backgroundColor: done ? mod.color : T.border }]} />
+                </View>
+                <View style={s.dashModuleFooter}>
+                  <Text style={s.rankSub}>{mod.questions.length} questions</Text>
+                  <Text style={[s.rankSub, { color: done ? T.green : T.text2 }]}>{done ? "✓ Complete" : "Not started"}</Text>
+                </View>
+              </View>
+            );
+          })}
+
+        </Animated.View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
 export default function App() {
   var [screen, setScreen] = useState("splash");
   var [activeModule, setActiveModule] = useState(null);
@@ -311,6 +416,7 @@ export default function App() {
   var [streak] = useState(1);
   var [completedModules, setCompletedModules] = useState([]);
   var [lessonResult, setLessonResult] = useState(null);
+  var [moduleXP, setModuleXP] = useState({});
 
   useEffect(function() {
     if (screen === "splash") {
@@ -324,6 +430,7 @@ export default function App() {
   function finishLesson(earned, correct, total) {
     setXP(function(prev) { return prev + earned; });
     setCompletedModules(function(prev) { return prev.indexOf(activeModule.id) === -1 ? prev.concat([activeModule.id]) : prev; });
+    setModuleXP(function(prev) { return Object.assign({}, prev, { [activeModule.id]: (prev[activeModule.id] || 0) + earned }); });
     setLessonResult({ correct: correct, total: total, xpEarned: earned, moduleName: activeModule.title });
     setScreen("result");
   }
@@ -333,7 +440,8 @@ export default function App() {
   if (screen === "splash") return <SplashScreen />;
   if (screen === "lesson") return <LessonScreen module={activeModule} onComplete={finishLesson} onExit={goHome} />;
   if (screen === "result") return <ResultScreen correct={lessonResult.correct} total={lessonResult.total} xpEarned={lessonResult.xpEarned} moduleName={lessonResult.moduleName} onHome={goHome} />;
-  return <HomeScreen xp={xp} streak={streak} onStart={startLesson} completedModules={completedModules} />;
+  if (screen === "dashboard") return <DashboardScreen xp={xp} completedModules={completedModules} moduleXP={moduleXP} onBack={goHome} />;
+  return <HomeScreen xp={xp} streak={streak} onStart={startLesson} completedModules={completedModules} onDashboard={function() { setScreen("dashboard"); }} />;
 }
 
 const s = StyleSheet.create({
@@ -422,4 +530,26 @@ const s = StyleSheet.create({
   resultMessage: { color: T.text2, fontSize: 14, textAlign: "center", lineHeight: 22, marginBottom: 28, paddingHorizontal: 10 },
   homeBtn: { backgroundColor: T.accent, borderRadius: 14, paddingVertical: 16, paddingHorizontal: 44 },
   homeBtnText: { color: "#fff", fontWeight: "800", fontSize: 16 },
+
+  dashboardBtn: { backgroundColor: T.card, borderRadius: 14, paddingVertical: 13, marginBottom: 20, alignItems: "center", borderWidth: 1, borderColor: T.border },
+  dashboardBtnText: { color: T.text2, fontWeight: "700", fontSize: 14 },
+
+  dashHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, backgroundColor: T.bg },
+  dashTitle: { fontSize: 17, fontWeight: "800", color: T.text },
+
+  dashOverallCard: { backgroundColor: T.card, borderRadius: 16, padding: 20, marginBottom: 14, borderWidth: 1, borderColor: T.border, alignItems: "center" },
+  dashBigPct: { fontSize: 56, fontWeight: "800", color: T.accent, marginBottom: 10, lineHeight: 64 },
+  dashCardLabel: { fontSize: 11, color: T.text2, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 },
+  dashCardSub: { fontSize: 12, color: T.text2, marginTop: 8 },
+
+  dashRankCard: { backgroundColor: T.card, borderRadius: 16, padding: 18, marginBottom: 20, borderWidth: 1, borderColor: T.border },
+  dashRankHint: { fontSize: 12, color: T.text2, marginTop: 8 },
+
+  dashSectionTitle: { fontSize: 16, fontWeight: "800", color: T.text, marginBottom: 12 },
+
+  dashModuleCard: { backgroundColor: T.card, borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: T.border },
+  dashModuleTop: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
+  dashModuleXP: { fontSize: 16, fontWeight: "800" },
+  dashModulePossible: { fontSize: 11, color: T.text2 },
+  dashModuleFooter: { flexDirection: "row", justifyContent: "space-between", marginTop: 6 },
 });
