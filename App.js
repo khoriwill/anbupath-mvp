@@ -1,6 +1,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, ScrollView, Animated } from 'react-native';
 
 const T = {
@@ -489,10 +490,50 @@ export default function App() {
   var [screen, setScreen] = useState("splash");
   var [activeModule, setActiveModule] = useState(null);
   var [xp, setXP] = useState(0);
-  var [streak] = useState(1);
+  var [streak, setStreak] = useState(0);
   var [completedModules, setCompletedModules] = useState([]);
   var [lessonResult, setLessonResult] = useState(null);
   var [moduleXP, setModuleXP] = useState({});
+  var loaded = useRef(false);
+
+  useEffect(function() {
+    async function load() {
+      try {
+        var storedXP        = await AsyncStorage.getItem('certforge_xp');
+        var storedStreak    = await AsyncStorage.getItem('certforge_streak');
+        var storedModules   = await AsyncStorage.getItem('certforge_completedModules');
+        var storedModuleXP  = await AsyncStorage.getItem('certforge_moduleXP');
+        var lastActive      = await AsyncStorage.getItem('certforge_last_active');
+
+        var d = new Date();
+        var today = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        var yd = new Date(); yd.setDate(yd.getDate() - 1);
+        var yesterday = yd.getFullYear() + '-' + String(yd.getMonth() + 1).padStart(2, '0') + '-' + String(yd.getDate()).padStart(2, '0');
+
+        if (storedXP !== null) setXP(JSON.parse(storedXP));
+        if (storedModules !== null) setCompletedModules(JSON.parse(storedModules));
+        if (storedModuleXP !== null) setModuleXP(JSON.parse(storedModuleXP));
+
+        var base = storedStreak !== null ? JSON.parse(storedStreak) : 0;
+        var computed = lastActive === today ? base
+                     : lastActive === yesterday ? base + 1
+                     : 0;
+        setStreak(computed);
+
+        await AsyncStorage.setItem('certforge_last_active', today);
+      } catch (_) {}
+      loaded.current = true;
+    }
+    load();
+  }, []);
+
+  useEffect(function() {
+    if (!loaded.current) return;
+    AsyncStorage.setItem('certforge_xp', JSON.stringify(xp));
+    AsyncStorage.setItem('certforge_streak', JSON.stringify(streak));
+    AsyncStorage.setItem('certforge_completedModules', JSON.stringify(completedModules));
+    AsyncStorage.setItem('certforge_moduleXP', JSON.stringify(moduleXP));
+  }, [xp, streak, completedModules, moduleXP]);
 
   useEffect(function() {
     if (screen === "splash") {
