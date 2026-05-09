@@ -2,7 +2,8 @@
 import { useState, useRef, useEffect } from 'react';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, ScrollView, Animated } from 'react-native';
+import { supabase } from './lib/supabase';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, ScrollView, Animated } from 'react-native';
 
 const T = {
   bg: '#0a0a0f', card: '#12121f', card2: '#1a1a2e',
@@ -69,6 +70,67 @@ function SplashScreen() {
         <View style={s.splashDivider} />
         <Text style={s.splashSub}>PMP · AWS · CISM · Security+</Text>
       </Animated.View>
+    </SafeAreaView>
+  );
+}
+
+function AuthScreen({ onAuth }) {
+  var [mode, setMode] = useState("signin");
+  var [email, setEmail] = useState("");
+  var [password, setPassword] = useState("");
+  var [error, setError] = useState("");
+  var [loading, setLoading] = useState(false);
+
+  async function handleSubmit() {
+    setError("");
+    setLoading(true);
+    var result = mode === "signup"
+      ? await supabase.auth.signUp({ email: email, password: password })
+      : await supabase.auth.signInWithPassword({ email: email, password: password });
+    setLoading(false);
+    if (result.error) {
+      setError(result.error.message);
+    } else {
+      onAuth(result.data.session);
+    }
+  }
+
+  return (
+    <SafeAreaView style={[s.safe, s.center]}>
+      <View style={s.authCard}>
+        <Text style={s.authLogo}>⚒️</Text>
+        <Text style={s.authTitle}>CertForge</Text>
+        <Text style={s.authSubtitle}>{mode === "signup" ? "Create your account" : "Welcome back, Forger"}</Text>
+
+        <TextInput
+          style={s.authInput}
+          placeholder="Email"
+          placeholderTextColor={T.text2}
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          autoCorrect={false}
+        />
+        <TextInput
+          style={s.authInput}
+          placeholder="Password"
+          placeholderTextColor={T.text2}
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+        />
+
+        {error ? <Text style={s.authError}>{error}</Text> : null}
+
+        <TouchableOpacity style={s.authButton} onPress={handleSubmit} activeOpacity={0.85} disabled={loading}>
+          <Text style={s.authButtonText}>{loading ? "..." : mode === "signup" ? "Create Account" : "Sign In"}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={s.authToggle} onPress={function() { setMode(mode === "signin" ? "signup" : "signin"); setError(""); }}>
+          <Text style={s.authToggleText}>{mode === "signin" ? "Don't have an account? Sign Up" : "Already have an account? Sign In"}</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -495,6 +557,17 @@ export default function App() {
   var [lessonResult, setLessonResult] = useState(null);
   var [moduleXP, setModuleXP] = useState({});
   var loaded = useRef(false);
+  var [session, setSession] = useState(null);
+
+  useEffect(function() {
+    supabase.auth.getSession().then(function(result) {
+      setSession(result.data.session);
+    });
+    var listener = supabase.auth.onAuthStateChange(function(_event, sess) {
+      setSession(sess);
+    });
+    return function() { listener.data.subscription.unsubscribe(); };
+  }, []);
 
   useEffect(function() {
     async function load() {
@@ -565,6 +638,7 @@ export default function App() {
 
   function goHome() { setScreen("home"); setActiveModule(null); setLessonResult(null); }
 
+  if (!session) return <AuthScreen onAuth={setSession} />;
   if (screen === "splash") return <SplashScreen />;
   if (screen === "lesson") return <LessonScreen module={activeModule} onComplete={finishLesson} onExit={goHome} />;
   if (screen === "result") return <ResultScreen correct={lessonResult.correct} total={lessonResult.total} xpEarned={lessonResult.xpEarned} moduleName={lessonResult.moduleName} onHome={goHome} />;
@@ -687,4 +761,15 @@ const s = StyleSheet.create({
   dashModuleXP: { fontSize: 16, fontWeight: "800" },
   dashModulePossible: { fontSize: 11, color: T.text2 },
   dashModuleFooter: { flexDirection: "row", justifyContent: "space-between", marginTop: 6 },
+
+  authCard: { backgroundColor: T.card, borderRadius: 20, padding: 28, width: "88%", borderWidth: 1, borderColor: T.border },
+  authLogo: { fontSize: 48, textAlign: "center", marginBottom: 8 },
+  authTitle: { fontSize: 28, fontWeight: "800", color: T.text, textAlign: "center", marginBottom: 4 },
+  authSubtitle: { fontSize: 13, color: T.text2, textAlign: "center", marginBottom: 28 },
+  authInput: { backgroundColor: T.card2, color: T.text, borderRadius: 12, padding: 14, fontSize: 15, marginBottom: 12, borderWidth: 1, borderColor: T.border },
+  authButton: { backgroundColor: T.accent, borderRadius: 12, padding: 15, alignItems: "center", marginTop: 4 },
+  authButtonText: { color: "#fff", fontWeight: "800", fontSize: 15 },
+  authError: { color: T.accent, fontSize: 13, marginBottom: 12, textAlign: "center" },
+  authToggle: { marginTop: 20, alignItems: "center" },
+  authToggleText: { color: T.text2, fontSize: 13 },
 });
