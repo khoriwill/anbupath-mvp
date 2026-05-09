@@ -62,7 +62,7 @@ function SplashScreen() {
   );
 }
 
-function HomeScreen({ xp, streak, onStart, completedModules, onDashboard, onPractice }) {
+function HomeScreen({ xp, streak, onStart, completedModules, moduleXP, onDashboard, onPractice }) {
   var rank = getRank(xp);
   var nextXP = xp >= 200 ? 200 : xp >= 100 ? 200 : 100;
   var pct = Math.min((xp / nextXP) * 100, 100);
@@ -115,7 +115,7 @@ function HomeScreen({ xp, streak, onStart, completedModules, onDashboard, onPrac
           var isCompleted = completedModules.indexOf(mod.id) !== -1;
           var isLocked = idx > 0 && completedModules.indexOf(MODULES[idx - 1].id) === -1;
           return (
-            <TouchableOpacity key={mod.id} style={[s.moduleCard, isCompleted && { borderColor: mod.color + "66" }, isLocked && s.moduleLocked]} onPress={function() { if (!isLocked) onStart(mod); }} disabled={isLocked} activeOpacity={0.8}>
+            <TouchableOpacity key={mod.id} style={[s.moduleCard, { borderLeftWidth: 4, borderLeftColor: isLocked ? T.border : mod.color }, isLocked && s.moduleLocked]} onPress={function() { if (!isLocked) onStart(mod); }} disabled={isLocked} activeOpacity={0.8}>
               <View style={[s.moduleIconWrap, { backgroundColor: isLocked ? T.border : mod.color + "22" }]}>
                 <Text style={s.moduleIconText}>{isLocked ? "🔒" : mod.icon}</Text>
               </View>
@@ -125,9 +125,13 @@ function HomeScreen({ xp, streak, onStart, completedModules, onDashboard, onPrac
                 <Text style={s.moduleMeta}>{mod.questions.length} questions · {mod.questions.reduce(function(a, i) { return a + QUESTIONS[i].xp; }, 0)} XP</Text>
               </View>
               <View style={s.moduleRight}>
-                {isCompleted && <Text style={{ fontSize: 22 }}>✅</Text>}
                 {!isCompleted && !isLocked && <View style={[s.startBtn, { backgroundColor: mod.color }]}><Text style={s.startBtnText}>Start</Text></View>}
               </View>
+              {isCompleted && (
+                <View style={[s.moduleXPBadge, { backgroundColor: mod.color }]}>
+                  <Text style={s.moduleXPBadgeText}>+{moduleXP[mod.id] || 0} XP</Text>
+                </View>
+              )}
             </TouchableOpacity>
           );
         })}
@@ -514,7 +518,7 @@ export default function App() {
   if (screen === "lesson") return <LessonScreen module={activeModule} onComplete={finishLesson} onExit={goHome} />;
   if (screen === "result") return <ResultScreen correct={lessonResult.correct} total={lessonResult.total} xpEarned={lessonResult.xpEarned} moduleName={lessonResult.moduleName} onHome={goHome} />;
   if (screen === "dashboard") return <DashboardScreen xp={xp} completedModules={completedModules} moduleXP={moduleXP} onBack={goHome} />;
-  return <HomeScreen xp={xp} streak={streak} onStart={startLesson} completedModules={completedModules} onDashboard={function() { setScreen("dashboard"); }} onPractice={startPractice} />;
+  return <HomeScreen xp={xp} streak={streak} onStart={startLesson} completedModules={completedModules} moduleXP={moduleXP} onDashboard={function() { setScreen("dashboard"); }} onPractice={startPractice} />;
 }
 
 const s = StyleSheet.create({
@@ -561,6 +565,8 @@ const s = StyleSheet.create({
   moduleRight: { marginLeft: 10, alignItems: "center" },
   startBtn: { borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 },
   startBtnText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+  moduleXPBadge: { position: "absolute", top: 10, right: 10, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  moduleXPBadgeText: { color: "#fff", fontSize: 10, fontWeight: "800", letterSpacing: 0.3 },
 
   comingSoonCard: { marginTop: 8, backgroundColor: T.card, borderRadius: 16, padding: 18, borderWidth: 1, borderColor: T.border, borderStyle: "dashed", alignItems: "center" },
   comingSoonTitle: { fontSize: 14, color: T.text2, fontWeight: "600", marginBottom: 12 },
