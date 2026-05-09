@@ -43,16 +43,26 @@ function getRank(xp) {
 function SplashScreen() {
   var fadeAnim = useRef(new Animated.Value(0)).current;
   var slideAnim = useRef(new Animated.Value(30)).current;
+  var pulseAnim = useRef(new Animated.Value(1)).current;
   useEffect(function() {
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
       Animated.timing(slideAnim, { toValue: 0, duration: 800, useNativeDriver: true }),
-    ]).start();
+    ]).start(function() {
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.08, duration: 200, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1.0, duration: 200, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1.08, duration: 200, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1.0, duration: 200, useNativeDriver: true }),
+      ]).start();
+    });
   }, []);
   return (
     <SafeAreaView style={[s.safe, s.center]}>
       <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }], alignItems: "center" }}>
-        <Text style={s.splashIcon}>⚒️</Text>
+        <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+          <Text style={s.splashIcon}>⚒️</Text>
+        </Animated.View>
         <Text style={s.splashName}>CertForge</Text>
         <Text style={s.splashTag}>Forge Your Certification.</Text>
         <View style={s.splashDivider} />
