@@ -7,7 +7,7 @@ import { AWS_QUESTIONS } from './content/aws-questions';
 import { SCRUM_QUESTIONS } from './content/scrum-questions';
 import { CISM_QUESTIONS } from './content/cism-questions';
 import { SECURITY_QUESTIONS } from './content/security-questions';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, ScrollView, Animated } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, ScrollView, Animated, KeyboardAvoidingView, Platform } from 'react-native';
 
 const T = {
   bg: '#0a0a0f', card: '#12121f', card2: '#1a1a2e',
@@ -622,41 +622,259 @@ function DashboardScreen({ xp, completedModules, moduleXP, onBack }) {
   );
 }
 
-var MOCK_TOPICS = [
-  { id: 1, track: "PMP", title: "How do you remember all the EVM formulas?", user: "forge_captain", replies: 14, color: T.blue },
-  { id: 2, track: "AWS", title: "Shared Responsibility Model — any easy tricks?", user: "cloud_forger", replies: 8, color: T.orange },
-  { id: 3, track: "Scrum", title: "Sprint cancellation — when does it actually happen?", user: "agile_smith", replies: 5, color: T.green },
-];
+var TRACK_META = {
+  pmp:      { label: "PMP",       color: T.blue   },
+  aws:      { label: "AWS",       color: T.orange  },
+  scrum:    { label: "Scrum",     color: T.green   },
+  cism:     { label: "CISM",      color: T.purple  },
+  security: { label: "Security+", color: T.red     },
+};
 
-function CommunityScreen() {
+function timeAgo(iso) {
+  var diff = Date.now() - new Date(iso).getTime();
+  var mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return mins + "m ago";
+  var hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + "h ago";
+  return Math.floor(hrs / 24) + "d ago";
+}
+
+function CommunityScreen({ onOpenPost }) {
+  var [posts, setPosts] = useState([]);
+  var [loading, setLoading] = useState(true);
+  var [composing, setComposing] = useState(false);
+  var [composeTrack, setComposeTrack] = useState("pmp");
+  var [composeText, setComposeText] = useState("");
+  var [posting, setPosting] = useState(false);
+
+  async function fetchPosts() {
+    setLoading(true);
+    try {
+      var res = await supabase
+        .from('community_posts')
+        .select('id, track_id, content, created_at, user_id, profiles(username), community_replies(id)')
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (!res.error) setPosts(res.data || []);
+    } catch (_) {}
+    setLoading(false);
+  }
+
+  useEffect(function() { fetchPosts(); }, []);
+
+  async function submitPost() {
+    var text = composeText.trim();
+    if (!text) return;
+    setPosting(true);
+    try {
+      var userRes = await supabase.auth.getUser();
+      if (userRes.data && userRes.data.user) {
+        var res = await supabase.from('community_posts').insert({
+          user_id: userRes.data.user.id,
+          track_id: composeTrack,
+          content: text,
+        });
+        if (!res.error) {
+          setComposing(false);
+          setComposeText("");
+          setComposeTrack("pmp");
+          fetchPosts();
+        }
+      }
+    } catch (_) {}
+    setPosting(false);
+  }
+
   return (
-    <SafeAreaView style={s.safe}>
-      <View style={s.commHeader}>
-        <Text style={s.commTitle}>Community Forge</Text>
-        <Text style={s.commSub}>Connect with fellow Forgers</Text>
-      </View>
-      <ScrollView contentContainerStyle={s.scrollTabbed} showsVerticalScrollIndicator={false}>
-        <View style={s.commBanner}>
-          <Text style={s.commBannerTitle}>🔜 Coming Next Update</Text>
-          <Text style={s.commBannerText}>Peer discussion, live Q&A, and study groups are on the forge. The community is being built — stay tuned.</Text>
+    <View style={{ flex: 1, backgroundColor: T.bg }}>
+      <SafeAreaView style={{ flex: 1 }}>
+        <View style={s.commHeader}>
+          <Text style={s.commTitle}>Community Forge</Text>
+          <Text style={s.commSub}>Connect with fellow Forgers</Text>
         </View>
-        <Text style={s.commSectionTitle}>Recent Discussions</Text>
-        {MOCK_TOPICS.map(function(topic) {
-          return (
-            <View key={topic.id} style={[s.topicCard, { borderLeftColor: topic.color }]}>
-              <View style={[s.topicBadge, { backgroundColor: topic.color + "22" }]}>
-                <Text style={[s.topicBadgeText, { color: topic.color }]}>{topic.track}</Text>
-              </View>
-              <Text style={s.topicTitle}>{topic.title}</Text>
-              <View style={s.topicFooter}>
-                <Text style={s.topicUser}>@{topic.user}</Text>
-                <Text style={s.topicReplies}>💬 {topic.replies}</Text>
-              </View>
+        <ScrollView contentContainerStyle={s.scrollTabbed} showsVerticalScrollIndicator={false}>
+          <View style={s.commBannerLive}>
+            <Text style={s.commBannerLiveText}>✅ Community is live — be the first to post.</Text>
+          </View>
+          <Text style={s.commSectionTitle}>Recent Discussions</Text>
+          {loading && <Text style={s.commEmptyText}>Loading...</Text>}
+          {!loading && posts.length === 0 && (
+            <Text style={s.commEmptyText}>No posts yet. Tap + to start the conversation!</Text>
+          )}
+          {posts.map(function(post) {
+            var meta = TRACK_META[post.track_id] || { label: post.track_id, color: T.text2 };
+            var replyCount = post.community_replies ? post.community_replies.length : 0;
+            var username = post.profiles ? (post.profiles.username || "Forger") : "Forger";
+            return (
+              <TouchableOpacity key={post.id} style={[s.topicCard, { borderLeftColor: meta.color }]} onPress={function() { onOpenPost(post); }} activeOpacity={0.8}>
+                <View style={[s.topicBadge, { backgroundColor: meta.color + "22" }]}>
+                  <Text style={[s.topicBadgeText, { color: meta.color }]}>{meta.label}</Text>
+                </View>
+                <Text style={s.topicTitle}>{post.content}</Text>
+                <View style={s.topicFooter}>
+                  <Text style={s.topicUser}>@{username} · {timeAgo(post.created_at)}</Text>
+                  <Text style={s.topicReplies}>💬 {replyCount}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </SafeAreaView>
+
+      <TouchableOpacity style={s.composeFab} onPress={function() { setComposing(true); }} activeOpacity={0.85}>
+        <Text style={s.composeFabIcon}>+</Text>
+      </TouchableOpacity>
+
+      {composing && (
+        <View style={s.composeOverlay}>
+          <View style={s.composeModal}>
+            <View style={s.composeModalHeader}>
+              <Text style={s.composeModalTitle}>New Post</Text>
+              <TouchableOpacity onPress={function() { setComposing(false); setComposeText(""); }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Text style={s.composeModalClose}>✕</Text>
+              </TouchableOpacity>
             </View>
-          );
-        })}
-      </ScrollView>
-    </SafeAreaView>
+            <Text style={s.composeLabel}>Track</Text>
+            <View style={s.composeTrackRow}>
+              {Object.keys(TRACK_META).map(function(key) {
+                var m = TRACK_META[key];
+                var active = composeTrack === key;
+                return (
+                  <TouchableOpacity key={key} style={[s.composeTrackChip, active && { backgroundColor: m.color, borderColor: m.color }]} onPress={function() { setComposeTrack(key); }} activeOpacity={0.8}>
+                    <Text style={[s.composeTrackChipText, { color: active ? "#fff" : T.text2 }]}>{m.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <Text style={s.composeLabel}>Post</Text>
+            <TextInput
+              style={s.composeInput}
+              value={composeText}
+              onChangeText={setComposeText}
+              placeholder="Share a question, tip, or insight..."
+              placeholderTextColor={T.text2}
+              multiline
+              maxLength={280}
+              autoFocus
+            />
+            <Text style={s.composeCount}>{composeText.length}/280</Text>
+            <TouchableOpacity
+              style={[s.composePostBtn, (!composeText.trim() || posting) && { opacity: 0.5 }]}
+              onPress={submitPost}
+              disabled={!composeText.trim() || posting}
+              activeOpacity={0.85}
+            >
+              <Text style={s.composePostBtnText}>{posting ? "Posting..." : "Post"}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function PostDetailScreen({ post, onBack }) {
+  var [replies, setReplies] = useState([]);
+  var [loading, setLoading] = useState(true);
+  var [replyText, setReplyText] = useState("");
+  var [submitting, setSubmitting] = useState(false);
+  var meta = TRACK_META[post.track_id] || { label: post.track_id, color: T.text2 };
+  var postUsername = post.profiles ? (post.profiles.username || "Forger") : "Forger";
+
+  async function fetchReplies() {
+    setLoading(true);
+    try {
+      var res = await supabase
+        .from('community_replies')
+        .select('id, content, created_at, user_id, profiles(username)')
+        .eq('post_id', post.id)
+        .order('created_at', { ascending: true });
+      if (!res.error) setReplies(res.data || []);
+    } catch (_) {}
+    setLoading(false);
+  }
+
+  useEffect(function() { fetchReplies(); }, []);
+
+  async function submitReply() {
+    var text = replyText.trim();
+    if (!text) return;
+    setSubmitting(true);
+    try {
+      var userRes = await supabase.auth.getUser();
+      if (userRes.data && userRes.data.user) {
+        var res = await supabase.from('community_replies').insert({
+          post_id: post.id,
+          user_id: userRes.data.user.id,
+          content: text,
+        });
+        if (!res.error) {
+          setReplyText("");
+          fetchReplies();
+        }
+      }
+    } catch (_) {}
+    setSubmitting(false);
+  }
+
+  return (
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: T.bg }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+      <SafeAreaView style={{ flex: 1 }}>
+        <View style={s.dashHeader}>
+          <TouchableOpacity onPress={onBack} style={s.exitBtn}>
+            <Text style={s.exitText}>✕</Text>
+          </TouchableOpacity>
+          <Text style={s.dashTitle}>Discussion</Text>
+          <View style={{ width: 34 }} />
+        </View>
+        <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <View style={[s.postDetailCard, { borderLeftColor: meta.color }]}>
+            <View style={[s.topicBadge, { backgroundColor: meta.color + "22" }]}>
+              <Text style={[s.topicBadgeText, { color: meta.color }]}>{meta.label}</Text>
+            </View>
+            <Text style={s.postDetailContent}>{post.content}</Text>
+            <Text style={s.postDetailMeta}>@{postUsername} · {timeAgo(post.created_at)}</Text>
+          </View>
+          <Text style={s.commSectionTitle}>
+            {loading ? "Replies" : replies.length + " " + (replies.length === 1 ? "Reply" : "Replies")}
+          </Text>
+          {loading && <Text style={s.commEmptyText}>Loading replies...</Text>}
+          {!loading && replies.length === 0 && (
+            <Text style={s.commEmptyText}>No replies yet. Be the first!</Text>
+          )}
+          {replies.map(function(reply) {
+            var rUser = reply.profiles ? (reply.profiles.username || "Forger") : "Forger";
+            return (
+              <View key={reply.id} style={s.replyCard}>
+                <Text style={s.replyUser}>@{rUser} · {timeAgo(reply.created_at)}</Text>
+                <Text style={s.replyContent}>{reply.content}</Text>
+              </View>
+            );
+          })}
+        </ScrollView>
+        <View style={s.replyInputRow}>
+          <TextInput
+            style={s.replyInput}
+            value={replyText}
+            onChangeText={setReplyText}
+            placeholder="Write a reply..."
+            placeholderTextColor={T.text2}
+            maxLength={280}
+            returnKeyType="send"
+            onSubmitEditing={submitReply}
+          />
+          <TouchableOpacity
+            style={[s.replySubmitBtn, (!replyText.trim() || submitting) && { opacity: 0.5 }]}
+            onPress={submitReply}
+            disabled={!replyText.trim() || submitting}
+            activeOpacity={0.85}
+          >
+            <Text style={s.replySubmitText}>{submitting ? "·" : "↑"}</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -795,6 +1013,7 @@ export default function App() {
   var [session, setSession] = useState(null);
   var [remoteLoaded, setRemoteLoaded] = useState(false);
   var [tab, setTab] = useState("learn");
+  var [activePost, setActivePost] = useState(null);
 
   useEffect(function() {
     supabase.auth.getSession().then(function(result) {
@@ -985,6 +1204,7 @@ export default function App() {
   if (screen === "splash") return <SplashScreen />;
   if (screen === "lesson") return <LessonScreen module={activeModule} onComplete={finishLesson} onExit={goHome} />;
   if (screen === "result") return <ResultScreen correct={lessonResult.correct} total={lessonResult.total} xpEarned={lessonResult.xpEarned} moduleName={lessonResult.moduleName} onHome={goHome} />;
+  if (screen === "post_detail") return <PostDetailScreen post={activePost} onBack={function() { setActivePost(null); setScreen("home"); setTab("community"); }} />;
 
   return (
     <View style={{ flex: 1, backgroundColor: T.bg }}>
@@ -992,7 +1212,7 @@ export default function App() {
         ? <DashboardScreen xp={xp} completedModules={completedModules} moduleXP={moduleXP} onBack={goHome} />
         : <HomeScreen xp={xp} streak={streak} onStart={startLesson} completedModules={completedModules} moduleXP={moduleXP} onDashboard={function() { setScreen("dashboard"); }} onPractice={startPractice} />
       )}
-      {tab === "community" && <CommunityScreen />}
+      {tab === "community" && <CommunityScreen onOpenPost={function(post) { setActivePost(post); setScreen("post_detail"); }} />}
       {tab === "profile" && <ProfileScreen session={session} xp={xp} streak={streak} completedModules={completedModules} moduleXP={moduleXP} onSignOut={handleSignOut} />}
       <TabBar tab={tab} onTab={setTab} />
     </View>
@@ -1138,9 +1358,9 @@ const s = StyleSheet.create({
   commHeader: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12 },
   commTitle: { fontSize: 28, fontWeight: "800", color: T.text, marginBottom: 4 },
   commSub: { fontSize: 13, color: T.text2 },
-  commBanner: { backgroundColor: T.card2, borderRadius: 16, padding: 18, marginBottom: 24, borderWidth: 1, borderColor: T.border, borderStyle: "dashed" },
-  commBannerTitle: { fontSize: 14, fontWeight: "800", color: T.text, marginBottom: 8 },
-  commBannerText: { fontSize: 13, color: T.text2, lineHeight: 20 },
+  commBannerLive: { backgroundColor: T.green + "15", borderRadius: 12, padding: 12, marginBottom: 20, borderWidth: 1, borderColor: T.green + "44" },
+  commBannerLiveText: { color: T.green, fontSize: 13, fontWeight: "600", textAlign: "center" },
+  commEmptyText: { color: T.text2, fontSize: 13, textAlign: "center", marginTop: 20, marginBottom: 10 },
   commSectionTitle: { fontSize: 16, fontWeight: "800", color: T.text, marginBottom: 12 },
   topicCard: { backgroundColor: T.card, borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: T.border, borderLeftWidth: 4 },
   topicBadge: { alignSelf: "flex-start", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, marginBottom: 8 },
@@ -1149,6 +1369,31 @@ const s = StyleSheet.create({
   topicFooter: { flexDirection: "row", justifyContent: "space-between" },
   topicUser: { fontSize: 11, color: T.text2 },
   topicReplies: { fontSize: 11, color: T.text2 },
+  composeFab: { position: "absolute", bottom: 24, right: 20, width: 52, height: 52, borderRadius: 26, backgroundColor: T.accent, alignItems: "center", justifyContent: "center", elevation: 6 },
+  composeFabIcon: { color: "#fff", fontSize: 30, lineHeight: 32, fontWeight: "300" },
+  composeOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.75)", justifyContent: "flex-end" },
+  composeModal: { backgroundColor: T.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 44 },
+  composeModalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
+  composeModalTitle: { fontSize: 18, fontWeight: "800", color: T.text },
+  composeModalClose: { color: T.text2, fontSize: 16, fontWeight: "700", padding: 4 },
+  composeLabel: { fontSize: 11, color: T.text2, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 },
+  composeTrackRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 20 },
+  composeTrackChip: { borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: T.border, backgroundColor: T.card2 },
+  composeTrackChipText: { fontSize: 11, fontWeight: "700" },
+  composeInput: { backgroundColor: T.card2, color: T.text, borderRadius: 12, padding: 14, fontSize: 14, minHeight: 100, textAlignVertical: "top", borderWidth: 1, borderColor: T.border, marginBottom: 6 },
+  composeCount: { fontSize: 11, color: T.text2, textAlign: "right", marginBottom: 16 },
+  composePostBtn: { backgroundColor: T.accent, borderRadius: 12, padding: 15, alignItems: "center" },
+  composePostBtnText: { color: "#fff", fontWeight: "800", fontSize: 15 },
+  postDetailCard: { backgroundColor: T.card, borderRadius: 16, padding: 18, marginBottom: 20, borderWidth: 1, borderColor: T.border, borderLeftWidth: 4 },
+  postDetailContent: { fontSize: 16, color: T.text, lineHeight: 24, marginBottom: 10 },
+  postDetailMeta: { fontSize: 11, color: T.text2 },
+  replyCard: { backgroundColor: T.card, borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: T.border },
+  replyUser: { fontSize: 11, color: T.text2, marginBottom: 6 },
+  replyContent: { fontSize: 14, color: T.text, lineHeight: 20 },
+  replyInputRow: { flexDirection: "row", padding: 12, gap: 10, backgroundColor: T.card, borderTopWidth: 1, borderTopColor: T.border },
+  replyInput: { flex: 1, backgroundColor: T.card2, color: T.text, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, borderWidth: 1, borderColor: T.border },
+  replySubmitBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: T.accent, alignItems: "center", justifyContent: "center" },
+  replySubmitText: { color: "#fff", fontWeight: "800", fontSize: 16 },
 
   profilePageTitle: { fontSize: 28, fontWeight: "800", color: T.text, marginBottom: 20 },
   profileCard: { backgroundColor: T.card, borderRadius: 16, padding: 20, marginBottom: 24, borderWidth: 1, borderColor: T.border },
