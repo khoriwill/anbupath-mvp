@@ -556,7 +556,7 @@ function DashboardScreen({ xp, completedModules, moduleXP, onBack }) {
           {MODULES.map(function(mod) {
             var done = completedModules.indexOf(mod.id) !== -1;
             var earned = moduleXP[mod.id] || 0;
-            var possible = mod.questions.reduce(function(a, i) { return a + QUESTIONS[i].xp; }, 0);
+            var possible = mod.questions.reduce(function(a, q) { return a + q.xp; }, 0);
             var barPct = possible > 0 ? (earned / possible) * 100 : 0;
             return (
               <View key={mod.id} style={[s.dashModuleCard, done && { borderColor: mod.color + "66" }]}>
@@ -590,6 +590,127 @@ function DashboardScreen({ xp, completedModules, moduleXP, onBack }) {
   );
 }
 
+var MOCK_TOPICS = [
+  { id: 1, track: "PMP", title: "How do you remember all the EVM formulas?", user: "forge_captain", replies: 14, color: T.blue },
+  { id: 2, track: "AWS", title: "Shared Responsibility Model — any easy tricks?", user: "cloud_forger", replies: 8, color: T.orange },
+  { id: 3, track: "Scrum", title: "Sprint cancellation — when does it actually happen?", user: "agile_smith", replies: 5, color: T.green },
+];
+
+function CommunityScreen() {
+  return (
+    <SafeAreaView style={s.safe}>
+      <View style={s.commHeader}>
+        <Text style={s.commTitle}>Community Forge</Text>
+        <Text style={s.commSub}>Connect with fellow Forgers</Text>
+      </View>
+      <ScrollView contentContainerStyle={s.scrollTabbed} showsVerticalScrollIndicator={false}>
+        <View style={s.commBanner}>
+          <Text style={s.commBannerTitle}>🔜 Coming Next Update</Text>
+          <Text style={s.commBannerText}>Peer discussion, live Q&A, and study groups are on the forge. The community is being built — stay tuned.</Text>
+        </View>
+        <Text style={s.commSectionTitle}>Recent Discussions</Text>
+        {MOCK_TOPICS.map(function(topic) {
+          return (
+            <View key={topic.id} style={[s.topicCard, { borderLeftColor: topic.color }]}>
+              <View style={[s.topicBadge, { backgroundColor: topic.color + "22" }]}>
+                <Text style={[s.topicBadgeText, { color: topic.color }]}>{topic.track}</Text>
+              </View>
+              <Text style={s.topicTitle}>{topic.title}</Text>
+              <View style={s.topicFooter}>
+                <Text style={s.topicUser}>@{topic.user}</Text>
+                <Text style={s.topicReplies}>💬 {topic.replies}</Text>
+              </View>
+            </View>
+          );
+        })}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+function ProfileScreen({ session, xp, streak, completedModules, moduleXP, onSignOut }) {
+  var [email, setEmail] = useState("");
+  var rank = getRank(xp);
+  var allModules = TRACKS.reduce(function(acc, t) { return acc.concat(t.modules); }, []);
+  var doneModules = allModules.filter(function(m) { return completedModules.indexOf(m.id) !== -1; });
+
+  useEffect(function() {
+    supabase.auth.getUser().then(function(res) {
+      if (res.data && res.data.user) setEmail(res.data.user.email || "");
+    });
+  }, []);
+
+  return (
+    <SafeAreaView style={s.safe}>
+      <ScrollView contentContainerStyle={s.scrollTabbed} showsVerticalScrollIndicator={false}>
+        <Text style={s.profilePageTitle}>Profile</Text>
+
+        <View style={s.profileCard}>
+          <Text style={s.profileEmail}>{email || "—"}</Text>
+          <View style={s.profileStatsRow}>
+            <View style={s.profileStat}>
+              <Text style={[s.profileStatNum, { color: rank.color }]}>{rank.title}</Text>
+              <Text style={s.profileStatLabel}>Rank</Text>
+            </View>
+            <View style={s.profileStatDiv} />
+            <View style={s.profileStat}>
+              <Text style={[s.profileStatNum, { color: T.gold }]}>{xp}</Text>
+              <Text style={s.profileStatLabel}>Total XP</Text>
+            </View>
+            <View style={s.profileStatDiv} />
+            <View style={s.profileStat}>
+              <Text style={[s.profileStatNum, { color: T.accent }]}>🔥 {streak}</Text>
+              <Text style={s.profileStatLabel}>Streak</Text>
+            </View>
+          </View>
+        </View>
+
+        <Text style={s.profileSectionTitle}>Completed Modules</Text>
+        {doneModules.length === 0 && (
+          <Text style={s.profileEmpty}>No modules completed yet. Start forging!</Text>
+        )}
+        {doneModules.map(function(mod) {
+          return (
+            <View key={mod.id} style={[s.profileModuleRow, { borderLeftColor: mod.color }]}>
+              <Text style={s.profileModuleIcon}>{mod.icon}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={s.profileModuleName}>{mod.title}</Text>
+                <Text style={s.profileModuleTrack}>{mod.trackId.toUpperCase()}</Text>
+              </View>
+              <Text style={[s.profileModuleXP, { color: T.gold }]}>+{moduleXP[mod.id] || 0} XP</Text>
+            </View>
+          );
+        })}
+
+        <TouchableOpacity style={s.signOutBtn} onPress={onSignOut} activeOpacity={0.8}>
+          <Text style={s.signOutBtnText}>Sign Out</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+function TabBar({ tab, onTab }) {
+  var tabs = [
+    { id: "learn", icon: "📚", label: "Learn" },
+    { id: "community", icon: "💬", label: "Community" },
+    { id: "profile", icon: "👤", label: "Profile" },
+  ];
+  return (
+    <View style={s.tabBar}>
+      {tabs.map(function(t) {
+        var active = tab === t.id;
+        return (
+          <TouchableOpacity key={t.id} style={s.tabItem} onPress={function() { onTab(t.id); }} activeOpacity={0.7}>
+            <Text style={[s.tabIcon, active && { color: T.accent }]}>{t.icon}</Text>
+            <Text style={[s.tabLabel, { color: active ? T.accent : T.text2 }]}>{t.label}</Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
 export default function App() {
   var [screen, setScreen] = useState("splash");
   var [activeModule, setActiveModule] = useState(null);
@@ -601,6 +722,7 @@ export default function App() {
   var loaded = useRef(false);
   var [session, setSession] = useState(null);
   var [remoteLoaded, setRemoteLoaded] = useState(false);
+  var [tab, setTab] = useState("learn");
 
   useEffect(function() {
     supabase.auth.getSession().then(function(result) {
@@ -775,6 +897,11 @@ export default function App() {
 
   function goHome() { setScreen("home"); setActiveModule(null); setLessonResult(null); }
 
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    setSession(null);
+  }
+
   if (!session) return <AuthScreen onAuth={setSession} />;
   if (!remoteLoaded) return (
     <SafeAreaView style={[s.safe, s.center]}>
@@ -784,14 +911,25 @@ export default function App() {
   if (screen === "splash") return <SplashScreen />;
   if (screen === "lesson") return <LessonScreen module={activeModule} onComplete={finishLesson} onExit={goHome} />;
   if (screen === "result") return <ResultScreen correct={lessonResult.correct} total={lessonResult.total} xpEarned={lessonResult.xpEarned} moduleName={lessonResult.moduleName} onHome={goHome} />;
-  if (screen === "dashboard") return <DashboardScreen xp={xp} completedModules={completedModules} moduleXP={moduleXP} onBack={goHome} />;
-  return <HomeScreen xp={xp} streak={streak} onStart={startLesson} completedModules={completedModules} moduleXP={moduleXP} onDashboard={function() { setScreen("dashboard"); }} onPractice={startPractice} />;
+
+  return (
+    <View style={{ flex: 1, backgroundColor: T.bg }}>
+      {tab === "learn" && (screen === "dashboard"
+        ? <DashboardScreen xp={xp} completedModules={completedModules} moduleXP={moduleXP} onBack={goHome} />
+        : <HomeScreen xp={xp} streak={streak} onStart={startLesson} completedModules={completedModules} moduleXP={moduleXP} onDashboard={function() { setScreen("dashboard"); }} onPractice={startPractice} />
+      )}
+      {tab === "community" && <CommunityScreen />}
+      {tab === "profile" && <ProfileScreen session={session} xp={xp} streak={streak} completedModules={completedModules} moduleXP={moduleXP} onSignOut={handleSignOut} />}
+      <TabBar tab={tab} onTab={setTab} />
+    </View>
+  );
 }
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: T.bg },
   center: { alignItems: "center", justifyContent: "center" },
-  scroll: { padding: 20, paddingBottom: 48 },
+  scroll: { padding: 20, paddingBottom: 88 },
+  scrollTabbed: { padding: 20, paddingBottom: 88 },
 
   splashIcon: { fontSize: 72, marginBottom: 16 },
   splashName: { fontSize: 42, fontWeight: "800", color: T.text, letterSpacing: -1, marginBottom: 8 },
@@ -914,4 +1052,42 @@ const s = StyleSheet.create({
   authError: { color: T.accent, fontSize: 13, marginBottom: 12, textAlign: "center" },
   authToggle: { marginTop: 20, alignItems: "center" },
   authToggleText: { color: T.text2, fontSize: 13 },
+
+  tabBar: { flexDirection: "row", backgroundColor: T.card, borderTopWidth: 1, borderTopColor: T.border, paddingTop: 10, paddingBottom: 28 },
+  tabItem: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 4 },
+  tabIcon: { fontSize: 22, marginBottom: 3, color: T.text2 },
+  tabLabel: { fontSize: 10, fontWeight: "700", letterSpacing: 0.3 },
+
+  commHeader: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12 },
+  commTitle: { fontSize: 28, fontWeight: "800", color: T.text, marginBottom: 4 },
+  commSub: { fontSize: 13, color: T.text2 },
+  commBanner: { backgroundColor: T.card2, borderRadius: 16, padding: 18, marginBottom: 24, borderWidth: 1, borderColor: T.border, borderStyle: "dashed" },
+  commBannerTitle: { fontSize: 14, fontWeight: "800", color: T.text, marginBottom: 8 },
+  commBannerText: { fontSize: 13, color: T.text2, lineHeight: 20 },
+  commSectionTitle: { fontSize: 16, fontWeight: "800", color: T.text, marginBottom: 12 },
+  topicCard: { backgroundColor: T.card, borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: T.border, borderLeftWidth: 4 },
+  topicBadge: { alignSelf: "flex-start", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, marginBottom: 8 },
+  topicBadgeText: { fontSize: 10, fontWeight: "800", letterSpacing: 0.5 },
+  topicTitle: { fontSize: 14, fontWeight: "700", color: T.text, lineHeight: 20, marginBottom: 10 },
+  topicFooter: { flexDirection: "row", justifyContent: "space-between" },
+  topicUser: { fontSize: 11, color: T.text2 },
+  topicReplies: { fontSize: 11, color: T.text2 },
+
+  profilePageTitle: { fontSize: 28, fontWeight: "800", color: T.text, marginBottom: 20 },
+  profileCard: { backgroundColor: T.card, borderRadius: 16, padding: 20, marginBottom: 24, borderWidth: 1, borderColor: T.border },
+  profileEmail: { fontSize: 13, color: T.text2, marginBottom: 16, textAlign: "center" },
+  profileStatsRow: { flexDirection: "row", alignItems: "center" },
+  profileStat: { flex: 1, alignItems: "center" },
+  profileStatNum: { fontSize: 18, fontWeight: "800", marginBottom: 4 },
+  profileStatLabel: { fontSize: 10, color: T.text2, textTransform: "uppercase", letterSpacing: 0.5 },
+  profileStatDiv: { width: 1, height: 36, backgroundColor: T.border },
+  profileSectionTitle: { fontSize: 16, fontWeight: "800", color: T.text, marginBottom: 12 },
+  profileEmpty: { color: T.text2, fontSize: 13, marginBottom: 16 },
+  profileModuleRow: { backgroundColor: T.card, borderRadius: 14, padding: 14, marginBottom: 10, flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: T.border, borderLeftWidth: 4, gap: 12 },
+  profileModuleIcon: { fontSize: 22 },
+  profileModuleName: { fontSize: 14, fontWeight: "700", color: T.text, marginBottom: 2 },
+  profileModuleTrack: { fontSize: 10, color: T.text2, letterSpacing: 0.5 },
+  profileModuleXP: { fontSize: 15, fontWeight: "800" },
+  signOutBtn: { marginTop: 24, backgroundColor: T.card, borderRadius: 14, paddingVertical: 15, alignItems: "center", borderWidth: 1, borderColor: T.accent + "55" },
+  signOutBtnText: { color: T.accent, fontWeight: "800", fontSize: 15 },
 });
