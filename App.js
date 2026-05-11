@@ -517,9 +517,10 @@ function DashboardScreen({ xp, completedModules, moduleXP, onBack }) {
   var prevThreshold = xp >= 200 ? 100 : 0;
   var rankPct = Math.min(((xp - prevThreshold) / (nextThreshold - prevThreshold)) * 100, 100);
   var nextRank = xp >= 200 ? null : xp >= 100 ? { title: "Master", color: T.gold } : { title: "Journeyman", color: T.purple };
-  var overallPct = MODULES.length > 0 ? Math.round((completedModules.length / MODULES.length) * 100) : 0;
-  var totalPossibleXP = MODULES.reduce(function(sum, mod) {
-    return sum + mod.questions.reduce(function(a, i) { return a + QUESTIONS[i].xp; }, 0);
+  var allModules = TRACKS.reduce(function(acc, t) { return acc.concat(t.modules); }, []);
+  var overallPct = allModules.length > 0 ? Math.round((completedModules.length / allModules.length) * 100) : 0;
+  var totalPossibleXP = allModules.reduce(function(sum, mod) {
+    return sum + mod.questions.reduce(function(a, q) { return a + q.xp; }, 0);
   }, 0);
 
   var scaleAnim = useRef(new Animated.Value(0)).current;
@@ -547,7 +548,7 @@ function DashboardScreen({ xp, completedModules, moduleXP, onBack }) {
             <View style={s.xpBarBg}>
               <View style={[s.xpBarFill, { width: overallPct + "%", backgroundColor: T.accent }]} />
             </View>
-            <Text style={s.dashCardSub}>{completedModules.length} of {MODULES.length} modules complete</Text>
+            <Text style={s.dashCardSub}>{completedModules.length} of {allModules.length} modules complete</Text>
           </View>
 
           <View style={s.dashRankCard}>
@@ -575,33 +576,42 @@ function DashboardScreen({ xp, completedModules, moduleXP, onBack }) {
 
           <Text style={s.dashSectionTitle}>Module Breakdown</Text>
 
-          {MODULES.map(function(mod) {
-            var done = completedModules.indexOf(mod.id) !== -1;
-            var earned = moduleXP[mod.id] || 0;
-            var possible = mod.questions.reduce(function(a, q) { return a + q.xp; }, 0);
-            var barPct = possible > 0 ? (earned / possible) * 100 : 0;
+          {TRACKS.map(function(track) {
             return (
-              <View key={mod.id} style={[s.dashModuleCard, done && { borderColor: mod.color + "66" }]}>
-                <View style={s.dashModuleTop}>
-                  <View style={[s.moduleIconWrap, { backgroundColor: mod.color + "22" }]}>
-                    <Text style={s.moduleIconText}>{done ? mod.icon : "🔒"}</Text>
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={s.moduleName}>{mod.title}</Text>
-                    <Text style={s.moduleDesc}>{mod.desc}</Text>
-                  </View>
-                  <View style={{ alignItems: "flex-end" }}>
-                    <Text style={[s.dashModuleXP, { color: done ? T.gold : T.text2 }]}>{earned} XP</Text>
-                    <Text style={s.dashModulePossible}>of {possible}</Text>
-                  </View>
+              <View key={track.id}>
+                <View style={s.dashTrackHeader}>
+                  <Text style={[s.dashTrackTitle, { color: track.color }]}>{track.icon}  {track.title}</Text>
                 </View>
-                <View style={s.xpBarBg}>
-                  <View style={[s.xpBarFill, { width: barPct + "%", backgroundColor: done ? mod.color : T.border }]} />
-                </View>
-                <View style={s.dashModuleFooter}>
-                  <Text style={s.rankSub}>{mod.questions.length} questions</Text>
-                  <Text style={[s.rankSub, { color: done ? T.green : T.text2 }]}>{done ? "✓ Complete" : "Not started"}</Text>
-                </View>
+                {track.modules.map(function(mod) {
+                  var done = completedModules.indexOf(mod.id) !== -1;
+                  var earned = moduleXP[mod.id] || 0;
+                  var possible = mod.questions.reduce(function(a, q) { return a + q.xp; }, 0);
+                  var barPct = possible > 0 ? (earned / possible) * 100 : 0;
+                  return (
+                    <View key={mod.id} style={[s.dashModuleCard, done && { borderColor: mod.color + "66" }]}>
+                      <View style={s.dashModuleTop}>
+                        <View style={[s.moduleIconWrap, { backgroundColor: mod.color + "22" }]}>
+                          <Text style={s.moduleIconText}>{done ? mod.icon : "🔒"}</Text>
+                        </View>
+                        <View style={{ flex: 1, marginLeft: 12 }}>
+                          <Text style={s.moduleName}>{mod.title}</Text>
+                          <Text style={s.moduleDesc}>{mod.desc}</Text>
+                        </View>
+                        <View style={{ alignItems: "flex-end" }}>
+                          <Text style={[s.dashModuleXP, { color: done ? T.gold : T.text2 }]}>{earned} XP</Text>
+                          <Text style={s.dashModulePossible}>of {possible}</Text>
+                        </View>
+                      </View>
+                      <View style={s.xpBarBg}>
+                        <View style={[s.xpBarFill, { width: barPct + "%", backgroundColor: done ? mod.color : T.border }]} />
+                      </View>
+                      <View style={s.dashModuleFooter}>
+                        <Text style={s.rankSub}>{mod.questions.length} questions</Text>
+                        <Text style={[s.rankSub, { color: done ? T.green : T.text2 }]}>{done ? "✓ Complete" : "Not started"}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
               </View>
             );
           })}
@@ -652,20 +662,60 @@ function CommunityScreen() {
 
 function ProfileScreen({ session, xp, streak, completedModules, moduleXP, onSignOut }) {
   var [email, setEmail] = useState("");
+  var [username, setUsername] = useState("Forger");
+  var [editing, setEditing] = useState(false);
+  var [editValue, setEditValue] = useState("");
   var rank = getRank(xp);
   var allModules = TRACKS.reduce(function(acc, t) { return acc.concat(t.modules); }, []);
   var doneModules = allModules.filter(function(m) { return completedModules.indexOf(m.id) !== -1; });
 
   useEffect(function() {
     supabase.auth.getUser().then(function(res) {
-      if (res.data && res.data.user) setEmail(res.data.user.email || "");
+      if (res.data && res.data.user) {
+        setEmail(res.data.user.email || "");
+        supabase.from('profiles').select('username').eq('id', res.data.user.id).single().then(function(result) {
+          if (result.data && result.data.username) setUsername(result.data.username);
+        });
+      }
     });
   }, []);
+
+  async function saveUsername() {
+    setEditing(false);
+    var trimmed = editValue.trim();
+    if (!trimmed || trimmed === username) return;
+    setUsername(trimmed);
+    try {
+      var res = await supabase.auth.getUser();
+      if (res.data && res.data.user) {
+        await supabase.from('profiles').upsert({ id: res.data.user.id, username: trimmed }, { onConflict: 'id' });
+      }
+    } catch (_) {}
+  }
 
   return (
     <SafeAreaView style={s.safe}>
       <ScrollView contentContainerStyle={s.scrollTabbed} showsVerticalScrollIndicator={false}>
-        <Text style={s.profilePageTitle}>Profile</Text>
+        <View style={s.profileNameRow}>
+          {editing ? (
+            <TextInput
+              style={s.profileNameInput}
+              value={editValue}
+              onChangeText={setEditValue}
+              onBlur={saveUsername}
+              autoFocus
+              maxLength={24}
+              placeholderTextColor={T.text2}
+            />
+          ) : (
+            <>
+              <Text style={[s.profilePageTitle, { marginBottom: 0 }]}>{username}</Text>
+              <TouchableOpacity onPress={function() { setEditValue(username); setEditing(true); }} style={s.profileEditBtn} activeOpacity={0.7}>
+                <Text style={s.profileEditIcon}>✏️</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
 
         <View style={s.profileCard}>
           <Text style={s.profileEmail}>{email || "—"}</Text>
@@ -867,12 +917,14 @@ export default function App() {
   function startLesson(mod) { setActiveModule(mod); setScreen("lesson"); }
 
   function startPractice() {
-    var allQs = QUESTIONS.slice();
-    for (var i = allQs.length - 1; i > 0; i--) {
+    var pool = TRACKS.reduce(function(acc, t) {
+      return acc.concat(t.modules.reduce(function(a, m) { return a.concat(m.questions); }, []));
+    }, []);
+    for (var i = pool.length - 1; i > 0; i--) {
       var j = Math.floor(Math.random() * (i + 1));
-      var tmp = allQs[i]; allQs[i] = allQs[j]; allQs[j] = tmp;
+      var tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
     }
-    startLesson({ id: "practice", trackId: "pmp", title: "Practice Mode", icon: "🎯", questions: allQs.slice(0, 5), color: T.orange, desc: "Random mix from all modules" });
+    startLesson({ id: "practice", trackId: "practice", title: "Practice Mode", icon: "🎯", questions: pool.slice(0, 5), color: T.orange, desc: "Random mix from all modules" });
   }
 
   async function finishLesson(earned, correct, total) {
@@ -1058,6 +1110,8 @@ const s = StyleSheet.create({
   dashRankHint: { fontSize: 12, color: T.text2, marginTop: 8 },
 
   dashSectionTitle: { fontSize: 16, fontWeight: "800", color: T.text, marginBottom: 12 },
+  dashTrackHeader: { marginTop: 8, marginBottom: 10 },
+  dashTrackTitle: { fontSize: 14, fontWeight: "800", letterSpacing: 0.3 },
 
   dashModuleCard: { backgroundColor: T.card, borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: T.border },
   dashModuleTop: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
@@ -1113,4 +1167,9 @@ const s = StyleSheet.create({
   profileModuleXP: { fontSize: 15, fontWeight: "800" },
   signOutBtn: { marginTop: 24, backgroundColor: T.card, borderRadius: 14, paddingVertical: 15, alignItems: "center", borderWidth: 1, borderColor: T.accent + "55" },
   signOutBtnText: { color: T.accent, fontWeight: "800", fontSize: 15 },
+
+  profileNameRow: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
+  profileNameInput: { fontSize: 28, fontWeight: "800", color: T.text, flex: 1, borderBottomWidth: 1, borderBottomColor: T.border, paddingBottom: 4 },
+  profileEditBtn: { marginLeft: 10, padding: 6 },
+  profileEditIcon: { fontSize: 16 },
 });
