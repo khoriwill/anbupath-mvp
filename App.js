@@ -5,12 +5,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './lib/supabase';
 import { AWS_QUESTIONS } from './content/aws-questions';
 import { SCRUM_QUESTIONS } from './content/scrum-questions';
+import { CISM_QUESTIONS } from './content/cism-questions';
+import { SECURITY_QUESTIONS } from './content/security-questions';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, ScrollView, Animated } from 'react-native';
 
 const T = {
   bg: '#0a0a0f', card: '#12121f', card2: '#1a1a2e',
   accent: '#ff4757', gold: '#ffd700', green: '#2ed573',
-  blue: '#4cc9f0', purple: '#7b2fff', orange: '#ff6b35',
+  blue: '#4cc9f0', purple: '#7b2fff', orange: '#ff6b35', red: '#ef233c',
   text: '#ffffff', text2: '#8892a4', border: '#1e2035',
 };
 
@@ -69,6 +71,30 @@ const TRACKS = [
       { id: 7, trackId: "scrum", title: "Scrum Theory", icon: "📖", questions: SCRUM_QUESTIONS.slice(0, 8), color: T.green, desc: "Empiricism, pillars, and Scrum values" },
       { id: 8, trackId: "scrum", title: "Roles and Events", icon: "👥", questions: SCRUM_QUESTIONS.slice(8, 16), color: T.green, desc: "Team roles, Sprint events, and Daily Scrum" },
       { id: 9, trackId: "scrum", title: "Artifacts and Done", icon: "📦", questions: SCRUM_QUESTIONS.slice(16, 25), color: T.green, desc: "Backlogs, Increment, and Definition of Done" },
+    ],
+  },
+  {
+    id: "cism",
+    title: "CISM",
+    icon: "🔐",
+    color: T.purple,
+    description: "Certified Information Security Manager",
+    modules: [
+      { id: 10, trackId: "cism", title: "Security Governance", icon: "🏛️", questions: CISM_QUESTIONS.slice(0, 8), color: T.purple, desc: "Governance frameworks, strategy, and alignment" },
+      { id: 11, trackId: "cism", title: "Risk Management", icon: "⚖️", questions: CISM_QUESTIONS.slice(8, 16), color: T.purple, desc: "Risk assessment, response, and treatment" },
+      { id: 12, trackId: "cism", title: "Incident Management", icon: "🚨", questions: CISM_QUESTIONS.slice(16, 25), color: T.purple, desc: "Incident response, recovery, and lessons learned" },
+    ],
+  },
+  {
+    id: "security",
+    title: "Security+",
+    icon: "🛡️",
+    color: T.red,
+    description: "CompTIA Security+",
+    modules: [
+      { id: 13, trackId: "security", title: "Threats and Attacks", icon: "⚠️", questions: SECURITY_QUESTIONS.slice(0, 8), color: T.red, desc: "Malware, social engineering, and attack types" },
+      { id: 14, trackId: "security", title: "Cryptography and PKI", icon: "🔑", questions: SECURITY_QUESTIONS.slice(8, 16), color: T.red, desc: "Encryption, hashing, and certificate management" },
+      { id: 15, trackId: "security", title: "Network Security", icon: "🌐", questions: SECURITY_QUESTIONS.slice(16, 25), color: T.red, desc: "Firewalls, VPNs, and network hardening" },
     ],
   },
 ];
@@ -252,12 +278,8 @@ function HomeScreen({ xp, streak, onStart, completedModules, moduleXP, onDashboa
         })}
 
         <View style={s.comingSoonCard}>
-          <Text style={s.comingSoonTitle}>🔜 More tracks forging...</Text>
-          <View style={s.comingSoonTags}>
-            {["CISM", "Security+"].map(function(t) {
-              return <View key={t} style={s.comingSoonTag}><Text style={s.comingSoonTagText}>{t}</Text></View>;
-            })}
-          </View>
+          <Text style={s.comingSoonTitle}>🔜 More tracks coming soon</Text>
+          <Text style={s.comingSoonSub}>AWS Partner and PMI authorized content on the forge</Text>
         </View>
 
         <TouchableOpacity style={s.practiceBtn} onPress={onPractice} activeOpacity={0.8}>
@@ -974,7 +996,8 @@ const s = StyleSheet.create({
   moduleXPBadgeText: { color: "#fff", fontSize: 10, fontWeight: "800", letterSpacing: 0.3 },
 
   comingSoonCard: { marginTop: 8, backgroundColor: T.card, borderRadius: 16, padding: 18, borderWidth: 1, borderColor: T.border, borderStyle: "dashed", alignItems: "center" },
-  comingSoonTitle: { fontSize: 14, color: T.text2, fontWeight: "600", marginBottom: 12 },
+  comingSoonTitle: { fontSize: 14, color: T.text2, fontWeight: "600", marginBottom: 6 },
+  comingSoonSub: { fontSize: 12, color: T.text2, textAlign: "center" },
   comingSoonTags: { flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "center" },
   comingSoonTag: { backgroundColor: T.card2, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1, borderColor: T.border },
   comingSoonTagText: { fontSize: 11, color: T.text2, fontWeight: "600" },
