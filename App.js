@@ -626,7 +626,8 @@ export default function App() {
     startLesson({ id: "practice", title: "Practice Mode", icon: "🎯", questions: indices.slice(0, 5), color: T.orange, desc: "Random mix from all modules" });
   }
 
-  function finishLesson(earned, correct, total) {
+  async function finishLesson(earned, correct, total) {
+    var newXP = xp + earned;
     setXP(function(prev) { return prev + earned; });
     if (activeModule.id !== "practice") {
       setCompletedModules(function(prev) { return prev.indexOf(activeModule.id) === -1 ? prev.concat([activeModule.id]) : prev; });
@@ -634,6 +635,37 @@ export default function App() {
     }
     setLessonResult({ correct: correct, total: total, xpEarned: earned, moduleName: activeModule.title });
     setScreen("result");
+
+    var d = new Date();
+    var today = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    var now = d.toISOString();
+    var userId;
+    try { var userRes = await supabase.auth.getUser(); userId = userRes.data.user.id; } catch (_) {}
+    if (!userId) return;
+
+    try {
+      await supabase.from('progress').upsert({
+        user_id: userId,
+        module_id: String(activeModule.id),
+        track_id: 'pmp',
+        xp_earned: earned,
+        score_percentage: Math.round(correct / total * 100),
+        correct_answers: correct,
+        total_questions: total,
+        completed_at: now,
+      }, { onConflict: 'user_id,module_id' });
+    } catch (e) { console.log('progress upsert error', e); }
+
+    try {
+      await supabase.from('user_stats').upsert({
+        id: userId,
+        total_xp: newXP,
+        current_streak: streak,
+        last_active: today,
+        rank: getRank(newXP).title,
+        updated_at: now,
+      }, { onConflict: 'id' });
+    } catch (e) { console.log('user_stats upsert error', e); }
   }
 
   function goHome() { setScreen("home"); setActiveModule(null); setLessonResult(null); }
