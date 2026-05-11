@@ -558,6 +558,7 @@ export default function App() {
   var [moduleXP, setModuleXP] = useState({});
   var loaded = useRef(false);
   var [session, setSession] = useState(null);
+  var [remoteLoaded, setRemoteLoaded] = useState(false);
 
   useEffect(function() {
     supabase.auth.getSession().then(function(result) {
@@ -607,6 +608,68 @@ export default function App() {
     AsyncStorage.setItem('certforge_completedModules', JSON.stringify(completedModules));
     AsyncStorage.setItem('certforge_moduleXP', JSON.stringify(moduleXP));
   }, [xp, streak, completedModules, moduleXP]);
+
+  useEffect(function() {
+    if (!session) {
+      setRemoteLoaded(false);
+      return;
+    }
+
+    async function loadFromSupabase() {
+      var userId = session.user.id;
+      var fbXP = 0, fbStreak = 0, fbModules = [], fbModuleXP = {};
+
+      try {
+        var sXP   = await AsyncStorage.getItem('certforge_xp');
+        var sStr  = await AsyncStorage.getItem('certforge_streak');
+        var sMods = await AsyncStorage.getItem('certforge_completedModules');
+        var sModXP = await AsyncStorage.getItem('certforge_moduleXP');
+        if (sXP    !== null) fbXP       = JSON.parse(sXP);
+        if (sStr   !== null) fbStreak   = JSON.parse(sStr);
+        if (sMods  !== null) fbModules  = JSON.parse(sMods);
+        if (sModXP !== null) fbModuleXP = JSON.parse(sModXP);
+      } catch (_) {}
+
+      try {
+        var statsRes = await supabase.from('user_stats').select('total_xp,current_streak').eq('id', userId).single();
+        if (statsRes.data) {
+          setXP(statsRes.data.total_xp || 0);
+          setStreak(statsRes.data.current_streak || 0);
+        } else {
+          setXP(fbXP);
+          setStreak(fbStreak);
+        }
+      } catch (_) {
+        setXP(fbXP);
+        setStreak(fbStreak);
+      }
+
+      try {
+        var progRes = await supabase.from('progress').select('module_id,score_percentage,xp_earned').eq('user_id', userId);
+        if (!progRes.error) {
+          var rows = progRes.data || [];
+          var doneIds = rows
+            .filter(function(r) { return r.score_percentage >= 70; })
+            .map(function(r) { return parseInt(r.module_id, 10); });
+          var xpMap = {};
+          rows.forEach(function(r) { xpMap[parseInt(r.module_id, 10)] = r.xp_earned; });
+          setCompletedModules(doneIds);
+          setModuleXP(xpMap);
+        } else {
+          setCompletedModules(fbModules);
+          setModuleXP(fbModuleXP);
+        }
+      } catch (_) {
+        setCompletedModules(fbModules);
+        setModuleXP(fbModuleXP);
+      }
+
+      loaded.current = true;
+      setRemoteLoaded(true);
+    }
+
+    loadFromSupabase();
+  }, [session]);
 
   useEffect(function() {
     if (screen === "splash") {
@@ -671,6 +734,11 @@ export default function App() {
   function goHome() { setScreen("home"); setActiveModule(null); setLessonResult(null); }
 
   if (!session) return <AuthScreen onAuth={setSession} />;
+  if (!remoteLoaded) return (
+    <SafeAreaView style={[s.safe, s.center]}>
+      <Text style={{ color: T.text2, fontSize: 16, fontWeight: '600' }}>Forging your progress...</Text>
+    </SafeAreaView>
+  );
   if (screen === "splash") return <SplashScreen />;
   if (screen === "lesson") return <LessonScreen module={activeModule} onComplete={finishLesson} onExit={goHome} />;
   if (screen === "result") return <ResultScreen correct={lessonResult.correct} total={lessonResult.total} xpEarned={lessonResult.xpEarned} moduleName={lessonResult.moduleName} onHome={goHome} />;
