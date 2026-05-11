@@ -3,6 +3,8 @@ import { useState, useRef, useEffect } from 'react';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './lib/supabase';
+import { AWS_QUESTIONS } from './content/aws-questions';
+import { SCRUM_QUESTIONS } from './content/scrum-questions';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, ScrollView, Animated } from 'react-native';
 
 const T = {
@@ -31,9 +33,44 @@ const QUESTIONS = [
 ];
 
 const MODULES = [
-  { id: 1, title: "Project Initiation", icon: "🏁", questions: [0, 1, 2, 3, 4], color: T.blue, desc: "Charters, scope, and kickoff" },
-  { id: 2, title: "Planning and Scheduling", icon: "📅", questions: [5, 6, 7, 8, 9], color: T.purple, desc: "EVM, WBS, and scheduling" },
-  { id: 3, title: "Team and Stakeholders", icon: "👥", questions: [10, 11, 12, 13, 14], color: T.green, desc: "Leadership, quality, and conflict" },
+  { id: 1, trackId: "pmp", title: "Project Initiation", icon: "🏁", questions: QUESTIONS.slice(0, 5), color: T.blue, desc: "Charters, scope, and kickoff" },
+  { id: 2, trackId: "pmp", title: "Planning and Scheduling", icon: "📅", questions: QUESTIONS.slice(5, 10), color: T.purple, desc: "EVM, WBS, and scheduling" },
+  { id: 3, trackId: "pmp", title: "Team and Stakeholders", icon: "👥", questions: QUESTIONS.slice(10, 15), color: T.green, desc: "Leadership, quality, and conflict" },
+];
+
+const TRACKS = [
+  {
+    id: "pmp",
+    title: "PMP Foundations",
+    icon: "📋",
+    color: T.blue,
+    description: "Project Management Professional",
+    modules: MODULES,
+  },
+  {
+    id: "aws",
+    title: "AWS Cloud Practitioner",
+    icon: "☁️",
+    color: T.orange,
+    description: "Amazon Web Services",
+    modules: [
+      { id: 4, trackId: "aws", title: "Cloud Concepts", icon: "🌩️", questions: AWS_QUESTIONS.slice(0, 8), color: T.orange, desc: "Regions, AZs, and cloud fundamentals" },
+      { id: 5, trackId: "aws", title: "AWS Services", icon: "⚙️", questions: AWS_QUESTIONS.slice(8, 16), color: T.orange, desc: "Compute, storage, database, and networking" },
+      { id: 6, trackId: "aws", title: "Security and Billing", icon: "🔐", questions: AWS_QUESTIONS.slice(16, 25), color: T.orange, desc: "IAM, Shield, pricing, and support" },
+    ],
+  },
+  {
+    id: "scrum",
+    title: "Scrum Fundamentals",
+    icon: "🔄",
+    color: T.green,
+    description: "PSM I Preparation",
+    modules: [
+      { id: 7, trackId: "scrum", title: "Scrum Theory", icon: "📖", questions: SCRUM_QUESTIONS.slice(0, 8), color: T.green, desc: "Empiricism, pillars, and Scrum values" },
+      { id: 8, trackId: "scrum", title: "Roles and Events", icon: "👥", questions: SCRUM_QUESTIONS.slice(8, 16), color: T.green, desc: "Team roles, Sprint events, and Daily Scrum" },
+      { id: 9, trackId: "scrum", title: "Artifacts and Done", icon: "📦", questions: SCRUM_QUESTIONS.slice(16, 25), color: T.green, desc: "Backlogs, Increment, and Definition of Done" },
+    ],
+  },
 ];
 
 function getRank(xp) {
@@ -179,40 +216,45 @@ function HomeScreen({ xp, streak, onStart, completedModules, moduleXP, onDashboa
           <Text style={s.dashboardBtnText}>📊 View Progress Dashboard</Text>
         </TouchableOpacity>
 
-        <View style={s.sectionHeader}>
-          <Text style={s.sectionTitle}>⚒️ PMP Foundations</Text>
-          <Text style={s.sectionSub}>Project Management Professional</Text>
-        </View>
-
-        {MODULES.map(function(mod, idx) {
-          var isCompleted = completedModules.indexOf(mod.id) !== -1;
-          var isLocked = idx > 0 && completedModules.indexOf(MODULES[idx - 1].id) === -1;
+        {TRACKS.map(function(track, tIdx) {
           return (
-            <TouchableOpacity key={mod.id} style={[s.moduleCard, { borderLeftWidth: 4, borderLeftColor: isLocked ? T.border : mod.color }, isLocked && s.moduleLocked]} onPress={function() { if (!isLocked) onStart(mod); }} disabled={isLocked} activeOpacity={0.8}>
-              <View style={[s.moduleIconWrap, { backgroundColor: isLocked ? T.border : mod.color + "22" }]}>
-                <Text style={s.moduleIconText}>{isLocked ? "🔒" : mod.icon}</Text>
+            <View key={track.id} style={tIdx > 0 ? { marginTop: 24 } : null}>
+              <View style={s.sectionHeader}>
+                <Text style={s.sectionTitle}>{track.icon} {track.title}</Text>
+                <Text style={s.sectionSub}>{track.description}</Text>
               </View>
-              <View style={s.moduleInfo}>
-                <Text style={[s.moduleName, isLocked && { color: T.text2 }]}>{mod.title}</Text>
-                <Text style={s.moduleDesc}>{isLocked ? "Complete previous module first" : mod.desc}</Text>
-                <Text style={s.moduleMeta}>{mod.questions.length} questions · {mod.questions.reduce(function(a, i) { return a + QUESTIONS[i].xp; }, 0)} XP</Text>
-              </View>
-              <View style={s.moduleRight}>
-                {!isCompleted && !isLocked && <View style={[s.startBtn, { backgroundColor: mod.color }]}><Text style={s.startBtnText}>Start</Text></View>}
-              </View>
-              {isCompleted && (
-                <View style={[s.moduleXPBadge, { backgroundColor: mod.color }]}>
-                  <Text style={s.moduleXPBadgeText}>+{moduleXP[mod.id] || 0} XP</Text>
-                </View>
-              )}
-            </TouchableOpacity>
+              {track.modules.map(function(mod, idx) {
+                var isCompleted = completedModules.indexOf(mod.id) !== -1;
+                var isLocked = idx > 0 && completedModules.indexOf(track.modules[idx - 1].id) === -1;
+                return (
+                  <TouchableOpacity key={mod.id} style={[s.moduleCard, { borderLeftWidth: 4, borderLeftColor: isLocked ? T.border : mod.color }, isLocked && s.moduleLocked]} onPress={function() { if (!isLocked) onStart(mod); }} disabled={isLocked} activeOpacity={0.8}>
+                    <View style={[s.moduleIconWrap, { backgroundColor: isLocked ? T.border : mod.color + "22" }]}>
+                      <Text style={s.moduleIconText}>{isLocked ? "🔒" : mod.icon}</Text>
+                    </View>
+                    <View style={s.moduleInfo}>
+                      <Text style={[s.moduleName, isLocked && { color: T.text2 }]}>{mod.title}</Text>
+                      <Text style={s.moduleDesc}>{isLocked ? "Complete previous module first" : mod.desc}</Text>
+                      <Text style={s.moduleMeta}>{mod.questions.length} questions · {mod.questions.reduce(function(a, q) { return a + q.xp; }, 0)} XP</Text>
+                    </View>
+                    <View style={s.moduleRight}>
+                      {!isCompleted && !isLocked && <View style={[s.startBtn, { backgroundColor: mod.color }]}><Text style={s.startBtnText}>Start</Text></View>}
+                    </View>
+                    {isCompleted && (
+                      <View style={[s.moduleXPBadge, { backgroundColor: mod.color }]}>
+                        <Text style={s.moduleXPBadgeText}>+{moduleXP[mod.id] || 0} XP</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           );
         })}
 
         <View style={s.comingSoonCard}>
           <Text style={s.comingSoonTitle}>🔜 More tracks forging...</Text>
           <View style={s.comingSoonTags}>
-            {["AWS CCP", "Scrum PSM", "CISM", "Security+"].map(function(t) {
+            {["CISM", "Security+"].map(function(t) {
               return <View key={t} style={s.comingSoonTag}><Text style={s.comingSoonTagText}>{t}</Text></View>;
             })}
           </View>
@@ -232,7 +274,7 @@ function HomeScreen({ xp, streak, onStart, completedModules, moduleXP, onDashboa
 }
 
 function LessonScreen({ module, onComplete, onExit }) {
-  var questions = module.questions.map(function(i) { return QUESTIONS[i]; });
+  var questions = module.questions;
   var [current, setCurrent] = useState(0);
   var [selected, setSelected] = useState(null);
   var [showResult, setShowResult] = useState(false);
@@ -681,12 +723,12 @@ export default function App() {
   function startLesson(mod) { setActiveModule(mod); setScreen("lesson"); }
 
   function startPractice() {
-    var indices = QUESTIONS.map(function(_, i) { return i; });
-    for (var i = indices.length - 1; i > 0; i--) {
+    var allQs = QUESTIONS.slice();
+    for (var i = allQs.length - 1; i > 0; i--) {
       var j = Math.floor(Math.random() * (i + 1));
-      var tmp = indices[i]; indices[i] = indices[j]; indices[j] = tmp;
+      var tmp = allQs[i]; allQs[i] = allQs[j]; allQs[j] = tmp;
     }
-    startLesson({ id: "practice", title: "Practice Mode", icon: "🎯", questions: indices.slice(0, 5), color: T.orange, desc: "Random mix from all modules" });
+    startLesson({ id: "practice", trackId: "pmp", title: "Practice Mode", icon: "🎯", questions: allQs.slice(0, 5), color: T.orange, desc: "Random mix from all modules" });
   }
 
   async function finishLesson(earned, correct, total) {
@@ -710,7 +752,7 @@ export default function App() {
       await supabase.from('progress').upsert({
         user_id: userId,
         module_id: String(activeModule.id),
-        track_id: 'pmp',
+        track_id: activeModule.trackId,
         xp_earned: earned,
         score_percentage: Math.round(correct / total * 100),
         correct_answers: correct,
