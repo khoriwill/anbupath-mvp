@@ -1020,10 +1020,79 @@ function ProfileScreen({ session, xp, streak, completedModules, moduleXP, onSign
   );
 }
 
+function LeaderboardScreen() {
+  var [entries, setEntries] = useState([]);
+  var [loading, setLoading] = useState(true);
+  var [currentUserId, setCurrentUserId] = useState(null);
+
+  useEffect(function() {
+    supabase.auth.getUser().then(function(res) {
+      if (res.data && res.data.user) setCurrentUserId(res.data.user.id);
+    });
+    async function fetchLeaderboard() {
+      try {
+        var res = await supabase
+          .from('leaderboard')
+          .select('id, username, total_xp, current_streak, rank, position')
+          .order('total_xp', { ascending: false })
+          .limit(50);
+        console.log('[leaderboard] data:', res.data, 'error:', res.error);
+        if (res.error) {
+          console.error('[leaderboard] fetch error:', res.error);
+        } else {
+          setEntries(res.data || []);
+        }
+      } catch (e) {
+        console.error('[leaderboard] unexpected error:', e);
+      }
+      setLoading(false);
+    }
+    fetchLeaderboard();
+  }, []);
+
+  var MEDAL = { 1: '#FFD700', 2: '#C0C0C0', 3: '#CD7F32' };
+  var today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+  return (
+    <SafeAreaView style={s.safe}>
+      <View style={s.lbHeader}>
+        <Text style={s.lbTitle}>Weekly Forge Rankings</Text>
+        <Text style={s.lbDate}>{today}</Text>
+      </View>
+      <ScrollView contentContainerStyle={s.scrollTabbed} showsVerticalScrollIndicator={false}>
+        {loading && <Text style={s.commEmptyText}>Loading rankings...</Text>}
+        {!loading && entries.length === 0 && (
+          <Text style={s.commEmptyText}>Be the first Forger on the board — complete a module to appear here.</Text>
+        )}
+        {entries.map(function(entry, i) {
+          var pos = entry.position != null ? entry.position : i + 1;
+          var rank = getRank(entry.total_xp || 0);
+          var medalColor = MEDAL[pos] || null;
+          var isSelf = entry.id === currentUserId;
+          return (
+            <View key={entry.id} style={[s.lbRow, isSelf && s.lbRowSelf]}>
+              <Text style={[s.lbPos, medalColor ? { color: medalColor, fontWeight: '800' } : {}]}>{pos}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={s.lbUsername}>@{entry.username || "Forger"}</Text>
+                <Text style={[s.lbRank, { color: rank.color }]}>{rank.title}</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={s.lbXP}>{entry.total_xp || 0} XP</Text>
+                <Text style={s.lbStreak}>🔥 {entry.current_streak || 0}</Text>
+              </View>
+            </View>
+          );
+        })}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
 function TabBar({ tab, onTab }) {
   var tabs = [
     { id: "learn", icon: "📚", label: "Learn" },
     { id: "community", icon: "💬", label: "Community" },
+    { id: "leaderboard", icon: "🏆", label: "Leaderboard" },
     { id: "profile", icon: "👤", label: "Profile" },
   ];
   return (
@@ -1253,6 +1322,7 @@ export default function App() {
         : <HomeScreen xp={xp} streak={streak} onStart={startLesson} completedModules={completedModules} moduleXP={moduleXP} onDashboard={function() { setScreen("dashboard"); }} onPractice={startPractice} />
       )}
       {tab === "community" && <CommunityScreen onOpenPost={function(post) { setActivePost(post); setScreen("post_detail"); }} />}
+      {tab === "leaderboard" && <LeaderboardScreen />}
       {tab === "profile" && <ProfileScreen session={session} xp={xp} streak={streak} completedModules={completedModules} moduleXP={moduleXP} onSignOut={handleSignOut} />}
       <TabBar tab={tab} onTab={setTab} />
     </View>
@@ -1457,4 +1527,15 @@ const s = StyleSheet.create({
   profileNameInput: { fontSize: 28, fontWeight: "800", color: T.text, flex: 1, borderBottomWidth: 1, borderBottomColor: T.border, paddingBottom: 4 },
   profileEditBtn: { marginLeft: 10, padding: 6 },
   profileEditIcon: { fontSize: 16 },
+
+  lbHeader: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12 },
+  lbTitle: { fontSize: 28, fontWeight: "800", color: T.text, marginBottom: 4 },
+  lbDate: { fontSize: 13, color: T.text2 },
+  lbRow: { backgroundColor: T.card, borderRadius: 14, padding: 14, marginBottom: 10, flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: T.border, gap: 12 },
+  lbRowSelf: { borderLeftWidth: 3, borderLeftColor: T.accent },
+  lbPos: { fontSize: 18, fontWeight: "700", color: T.text2, width: 32, textAlign: "center" },
+  lbUsername: { fontSize: 14, fontWeight: "700", color: T.text, marginBottom: 2 },
+  lbRank: { fontSize: 11, fontWeight: "700", letterSpacing: 0.5 },
+  lbXP: { fontSize: 15, fontWeight: "800", color: T.gold },
+  lbStreak: { fontSize: 11, color: T.text2 },
 });
