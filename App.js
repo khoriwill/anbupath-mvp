@@ -942,7 +942,7 @@ function PostDetailScreen({ post, onBack }) {
   );
 }
 
-function ProfileScreen({ session, xp, streak, completedModules, moduleXP, onSignOut, badges }) {
+function ProfileScreen({ session, xp, streak, completedModules, moduleXP, onSignOut, badges, onResetOnboarding }) {
   var [email, setEmail] = useState("");
   var [username, setUsername] = useState("Forger");
   var [editing, setEditing] = useState(false);
@@ -1051,6 +1051,9 @@ function ProfileScreen({ session, xp, streak, completedModules, moduleXP, onSign
 
         <TouchableOpacity style={s.signOutBtn} onPress={onSignOut} activeOpacity={0.8}>
           <Text style={s.signOutBtnText}>Sign Out</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={s.resetOnboardingBtn} onPress={onResetOnboarding} activeOpacity={0.8}>
+          <Text style={s.resetOnboardingText}>[DEV] Reset Onboarding</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -1460,7 +1463,7 @@ export default function App() {
       )}
       {tab === "community" && <CommunityScreen onOpenPost={function(post) { setActivePost(post); setScreen("post_detail"); }} />}
       {tab === "leaderboard" && <LeaderboardScreen />}
-      {tab === "profile" && <ProfileScreen session={session} xp={xp} streak={streak} completedModules={completedModules} moduleXP={moduleXP} onSignOut={handleSignOut} badges={badges} />}
+      {tab === "profile" && <ProfileScreen session={session} xp={xp} streak={streak} completedModules={completedModules} moduleXP={moduleXP} onSignOut={handleSignOut} badges={badges} onResetOnboarding={function() { AsyncStorage.removeItem('certforge_onboarding_complete'); setOnboardingDone(false); }} />}
       <TabBar tab={tab} onTab={setTab} />
     </View>
   );
@@ -1659,6 +1662,8 @@ const s = StyleSheet.create({
   profileModuleXP: { fontSize: 15, fontWeight: "800" },
   signOutBtn: { marginTop: 24, backgroundColor: T.card, borderRadius: 14, paddingVertical: 15, alignItems: "center", borderWidth: 1, borderColor: T.accent + "55" },
   signOutBtnText: { color: T.accent, fontWeight: "800", fontSize: 15 },
+  resetOnboardingBtn: { marginTop: 12, paddingVertical: 12, alignItems: "center" },
+  resetOnboardingText: { color: T.text2, fontSize: 12, fontWeight: "600" },
 
   profileNameRow: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
   profileNameInput: { fontSize: 28, fontWeight: "800", color: T.text, flex: 1, borderBottomWidth: 1, borderBottomColor: T.border, paddingBottom: 4 },
