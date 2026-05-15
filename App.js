@@ -1057,6 +1057,38 @@ function ProfileScreen({ session, xp, streak, completedModules, moduleXP, onSign
   );
 }
 
+const ONBOARDING_SLIDES = [
+  { icon: '⚒️', title: 'Welcome to CertForge', subtitle: 'The certification training dojo. Forge your skills one question at a time.' },
+  { icon: '🏆', title: 'Earn XP. Rank Up.', subtitle: 'Answer questions, earn XP, and climb from Apprentice to Journeyman to Master. Every correct answer forges your rank.' },
+  { icon: '🎯', title: 'Pick Your Track', subtitle: 'PMP. AWS. CISM. Security+. Scrum. Choose your certification and start forging today.' },
+];
+
+function OnboardingScreen({ onComplete }) {
+  var [slide, setSlide] = useState(0);
+  var isLast = slide === ONBOARDING_SLIDES.length - 1;
+  var current = ONBOARDING_SLIDES[slide];
+  function handleNext() {
+    if (isLast) { onComplete(); } else { setSlide(slide + 1); }
+  }
+  return (
+    <SafeAreaView style={[s.safe, s.center]}>
+      <View style={s.onboardingSlide}>
+        <Text style={s.onboardingIcon}>{current.icon}</Text>
+        <Text style={s.onboardingTitle}>{current.title}</Text>
+        <Text style={s.onboardingSubtitle}>{current.subtitle}</Text>
+      </View>
+      <View style={s.onboardingDots}>
+        {ONBOARDING_SLIDES.map(function(_, i) {
+          return <View key={i} style={[s.onboardingDot, i === slide && s.onboardingDotActive]} />;
+        })}
+      </View>
+      <TouchableOpacity style={s.onboardingBtn} onPress={handleNext} activeOpacity={0.85}>
+        <Text style={s.onboardingBtnText}>{isLast ? 'Start Forging' : 'Next'}</Text>
+      </TouchableOpacity>
+    </SafeAreaView>
+  );
+}
+
 function LeaderboardScreen() {
   var [entries, setEntries] = useState([]);
   var [loading, setLoading] = useState(true);
@@ -1162,6 +1194,7 @@ export default function App() {
   var [activePost, setActivePost] = useState(null);
   var [badges, setBadges] = useState([]);
   var [newBadge, setNewBadge] = useState(null);
+  var [onboardingDone, setOnboardingDone] = useState(true);
 
   useEffect(function() {
     supabase.auth.getSession().then(function(result) {
@@ -1182,6 +1215,8 @@ export default function App() {
         var storedModuleXP  = await AsyncStorage.getItem('certforge_moduleXP');
         var lastActive      = await AsyncStorage.getItem('certforge_last_active');
         var storedBadges    = await AsyncStorage.getItem('certforge_badges');
+        var storedOnboarding = await AsyncStorage.getItem('certforge_onboarding_complete');
+        if (storedOnboarding === null) setOnboardingDone(false);
 
         var d = new Date();
         var today = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -1394,6 +1429,10 @@ export default function App() {
       <Text style={{ color: T.text2, fontSize: 16, fontWeight: '600' }}>Forging your progress...</Text>
     </SafeAreaView>
   );
+  if (!onboardingDone) return <OnboardingScreen onComplete={function() {
+    AsyncStorage.setItem('certforge_onboarding_complete', '1');
+    setOnboardingDone(true);
+  }} />;
   if (screen === "splash") return <SplashScreen />;
   if (screen === "lesson") return <LessonScreen module={activeModule} onComplete={finishLesson} onExit={goHome} />;
   if (screen === "result") return (
@@ -1625,6 +1664,16 @@ const s = StyleSheet.create({
   profileNameInput: { fontSize: 28, fontWeight: "800", color: T.text, flex: 1, borderBottomWidth: 1, borderBottomColor: T.border, paddingBottom: 4 },
   profileEditBtn: { marginLeft: 10, padding: 6 },
   profileEditIcon: { fontSize: 16 },
+
+  onboardingSlide: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 },
+  onboardingIcon: { fontSize: 80, marginBottom: 28, textAlign: "center" },
+  onboardingTitle: { fontSize: 28, fontWeight: "800", color: T.text, textAlign: "center", marginBottom: 16, lineHeight: 34 },
+  onboardingSubtitle: { fontSize: 16, color: T.text2, textAlign: "center", lineHeight: 26 },
+  onboardingDots: { flexDirection: "row", gap: 8, marginBottom: 32 },
+  onboardingDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: T.border },
+  onboardingDotActive: { backgroundColor: T.accent, width: 20 },
+  onboardingBtn: { backgroundColor: T.accent, borderRadius: 14, paddingVertical: 16, alignItems: "center", marginBottom: 40, marginHorizontal: 24, alignSelf: "stretch" },
+  onboardingBtnText: { color: "#fff", fontWeight: "800", fontSize: 16 },
 
   badgeGrid: { flexDirection: "row", flexWrap: "wrap", marginBottom: 24 },
   badgeCell: { width: "25%", alignItems: "center", paddingVertical: 14, paddingHorizontal: 4 },
