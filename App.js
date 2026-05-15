@@ -653,11 +653,31 @@ function CommunityScreen({ onOpenPost }) {
     try {
       var res = await supabase
         .from('community_posts')
-        .select('id, track_id, content, created_at, user_id, profiles(username), community_replies(id)')
+        .select('id, track_id, content, created_at, user_id, community_replies(id)')
         .order('created_at', { ascending: false })
         .limit(20);
-      if (!res.error) setPosts(res.data || []);
-    } catch (_) {}
+      console.log('[community_posts] data:', res.data, 'error:', res.error);
+      if (res.error) {
+        console.error('[community_posts] fetch error:', res.error);
+        setLoading(false);
+        return;
+      }
+      var postsData = res.data || [];
+      var userIds = postsData.map(function(p) { return p.user_id; }).filter(function(id, i, arr) { return arr.indexOf(id) === i; });
+      var usernameMap = {};
+      if (userIds.length > 0) {
+        var profRes = await supabase.from('profiles').select('id, username').in('id', userIds);
+        console.log('[profiles] data:', profRes.data, 'error:', profRes.error);
+        if (!profRes.error && profRes.data) {
+          profRes.data.forEach(function(p) { usernameMap[p.id] = p.username; });
+        }
+      }
+      setPosts(postsData.map(function(p) {
+        return Object.assign({}, p, { profiles: { username: usernameMap[p.user_id] || null } });
+      }));
+    } catch (e) {
+      console.error('[community_posts] unexpected error:', e);
+    }
     setLoading(false);
   }
 
@@ -787,11 +807,31 @@ function PostDetailScreen({ post, onBack }) {
     try {
       var res = await supabase
         .from('community_replies')
-        .select('id, content, created_at, user_id, profiles(username)')
+        .select('id, content, created_at, user_id')
         .eq('post_id', post.id)
         .order('created_at', { ascending: true });
-      if (!res.error) setReplies(res.data || []);
-    } catch (_) {}
+      console.log('[community_replies] data:', res.data, 'error:', res.error);
+      if (res.error) {
+        console.error('[community_replies] fetch error:', res.error);
+        setLoading(false);
+        return;
+      }
+      var repliesData = res.data || [];
+      var userIds = repliesData.map(function(r) { return r.user_id; }).filter(function(id, i, arr) { return arr.indexOf(id) === i; });
+      var usernameMap = {};
+      if (userIds.length > 0) {
+        var profRes = await supabase.from('profiles').select('id, username').in('id', userIds);
+        console.log('[profiles] data:', profRes.data, 'error:', profRes.error);
+        if (!profRes.error && profRes.data) {
+          profRes.data.forEach(function(p) { usernameMap[p.id] = p.username; });
+        }
+      }
+      setReplies(repliesData.map(function(r) {
+        return Object.assign({}, r, { profiles: { username: usernameMap[r.user_id] || null } });
+      }));
+    } catch (e) {
+      console.error('[community_replies] unexpected error:', e);
+    }
     setLoading(false);
   }
 
