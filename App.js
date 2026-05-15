@@ -105,6 +105,30 @@ function getRank(xp) {
   return { title: "Apprentice", color: T.blue };
 }
 
+const BADGES = [
+  { id: 'first_lesson',  title: 'First Forge',    description: 'Complete your first lesson',  icon: '🔨' },
+  { id: 'perfect_score', title: 'Flawless',        description: 'Score 100% on any lesson',    icon: '⭐' },
+  { id: 'streak_3',      title: 'On Fire',         description: 'Maintain a 3-day streak',     icon: '🔥' },
+  { id: 'streak_7',      title: 'Weekly Warrior',  description: '7-day streak',                icon: '⚡' },
+  { id: 'pmp_complete',  title: 'PMP Forged',      description: 'Complete all PMP modules',    icon: '📋' },
+  { id: 'aws_complete',  title: 'Cloud Forged',    description: 'Complete all AWS modules',    icon: '☁️' },
+  { id: 'all_tracks',    title: 'Master Forger',   description: 'Complete all 5 tracks',       icon: '🏆' },
+  { id: 'rank_master',   title: 'Ascended',        description: 'Reach Master rank',           icon: '👑' },
+];
+
+function checkBadges(xp, streak, completedModules, lastScore) {
+  var earned = [];
+  if (completedModules.length >= 1) earned.push('first_lesson');
+  if (lastScore === 100) earned.push('perfect_score');
+  if (streak >= 3) earned.push('streak_3');
+  if (streak >= 7) earned.push('streak_7');
+  if ([1, 2, 3].every(function(id) { return completedModules.indexOf(id) !== -1; })) earned.push('pmp_complete');
+  if ([4, 5, 6].every(function(id) { return completedModules.indexOf(id) !== -1; })) earned.push('aws_complete');
+  if (completedModules.length >= 15) earned.push('all_tracks');
+  if (xp >= 200) earned.push('rank_master');
+  return earned;
+}
+
 function SplashScreen() {
   var fadeAnim = useRef(new Animated.Value(0)).current;
   var slideAnim = useRef(new Animated.Value(30)).current;
@@ -918,7 +942,7 @@ function PostDetailScreen({ post, onBack }) {
   );
 }
 
-function ProfileScreen({ session, xp, streak, completedModules, moduleXP, onSignOut }) {
+function ProfileScreen({ session, xp, streak, completedModules, moduleXP, onSignOut, badges }) {
   var [email, setEmail] = useState("");
   var [username, setUsername] = useState("Forger");
   var [editing, setEditing] = useState(false);
@@ -993,6 +1017,19 @@ function ProfileScreen({ session, xp, streak, completedModules, moduleXP, onSign
               <Text style={s.profileStatLabel}>Streak</Text>
             </View>
           </View>
+        </View>
+
+        <Text style={s.profileSectionTitle}>Badges</Text>
+        <View style={s.badgeGrid}>
+          {BADGES.map(function(badge) {
+            var earned = badges && badges.indexOf(badge.id) !== -1;
+            return (
+              <View key={badge.id} style={[s.badgeCell, !earned && s.badgeCellLocked]}>
+                <Text style={s.badgeCellIcon}>{earned ? badge.icon : '🔒'}</Text>
+                <Text style={[s.badgeCellTitle, !earned && { color: T.text2 }]}>{badge.title}</Text>
+              </View>
+            );
+          })}
         </View>
 
         <Text style={s.profileSectionTitle}>Completed Modules</Text>
@@ -1123,6 +1160,8 @@ export default function App() {
   var [remoteLoaded, setRemoteLoaded] = useState(false);
   var [tab, setTab] = useState("learn");
   var [activePost, setActivePost] = useState(null);
+  var [badges, setBadges] = useState([]);
+  var [newBadge, setNewBadge] = useState(null);
 
   useEffect(function() {
     supabase.auth.getSession().then(function(result) {
@@ -1142,14 +1181,17 @@ export default function App() {
         var storedModules   = await AsyncStorage.getItem('certforge_completedModules');
         var storedModuleXP  = await AsyncStorage.getItem('certforge_moduleXP');
         var lastActive      = await AsyncStorage.getItem('certforge_last_active');
+        var storedBadges    = await AsyncStorage.getItem('certforge_badges');
 
         var d = new Date();
         var today = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
         var yd = new Date(); yd.setDate(yd.getDate() - 1);
         var yesterday = yd.getFullYear() + '-' + String(yd.getMonth() + 1).padStart(2, '0') + '-' + String(yd.getDate()).padStart(2, '0');
 
-        if (storedXP !== null) setXP(JSON.parse(storedXP));
-        if (storedModules !== null) setCompletedModules(JSON.parse(storedModules));
+        var parsedXP = storedXP !== null ? JSON.parse(storedXP) : 0;
+        var parsedModules = storedModules !== null ? JSON.parse(storedModules) : [];
+        if (storedXP !== null) setXP(parsedXP);
+        if (storedModules !== null) setCompletedModules(parsedModules);
         if (storedModuleXP !== null) setModuleXP(JSON.parse(storedModuleXP));
 
         var base = storedStreak !== null ? JSON.parse(storedStreak) : 0;
@@ -1157,6 +1199,11 @@ export default function App() {
                      : lastActive === yesterday ? base + 1
                      : 0;
         setStreak(computed);
+
+        var savedBadges = storedBadges !== null ? JSON.parse(storedBadges) : [];
+        var computedBadges = checkBadges(parsedXP, computed, parsedModules, null);
+        var merged = savedBadges.concat(computedBadges.filter(function(id) { return savedBadges.indexOf(id) === -1; }));
+        setBadges(merged);
 
         await AsyncStorage.setItem('certforge_last_active', today);
       } catch (_) {}
@@ -1172,6 +1219,11 @@ export default function App() {
     AsyncStorage.setItem('certforge_completedModules', JSON.stringify(completedModules));
     AsyncStorage.setItem('certforge_moduleXP', JSON.stringify(moduleXP));
   }, [xp, streak, completedModules, moduleXP]);
+
+  useEffect(function() {
+    if (!loaded.current) return;
+    AsyncStorage.setItem('certforge_badges', JSON.stringify(badges));
+  }, [badges]);
 
   useEffect(function() {
     if (!session) {
@@ -1208,6 +1260,7 @@ export default function App() {
         setStreak(fbStreak);
       }
 
+      var finalModules = fbModules;
       try {
         var progRes = await supabase.from('progress').select('module_id,score_percentage,xp_earned').eq('user_id', userId);
         if (!progRes.error) {
@@ -1219,6 +1272,7 @@ export default function App() {
           rows.forEach(function(r) { xpMap[parseInt(r.module_id, 10)] = r.xp_earned; });
           setCompletedModules(doneIds);
           setModuleXP(xpMap);
+          finalModules = doneIds;
         } else {
           setCompletedModules(fbModules);
           setModuleXP(fbModuleXP);
@@ -1227,6 +1281,17 @@ export default function App() {
         setCompletedModules(fbModules);
         setModuleXP(fbModuleXP);
       }
+
+      try {
+        var sbBadges = await AsyncStorage.getItem('certforge_badges');
+        var existingBadges = sbBadges !== null ? JSON.parse(sbBadges) : [];
+        var finalXP = 0, finalStreak = 0;
+        try { var sxp = await AsyncStorage.getItem('certforge_xp'); if (sxp) finalXP = JSON.parse(sxp); } catch (_) {}
+        try { var sst = await AsyncStorage.getItem('certforge_streak'); if (sst) finalStreak = JSON.parse(sst); } catch (_) {}
+        var computedFromLoad = checkBadges(finalXP, finalStreak, finalModules, null);
+        var mergedFromLoad = existingBadges.concat(computedFromLoad.filter(function(id) { return existingBadges.indexOf(id) === -1; }));
+        setBadges(mergedFromLoad);
+      } catch (_) {}
 
       loaded.current = true;
       setRemoteLoaded(true);
@@ -1241,6 +1306,12 @@ export default function App() {
       return function() { clearTimeout(t); };
     }
   }, [screen]);
+
+  useEffect(function() {
+    if (!newBadge) return;
+    var t = setTimeout(function() { setNewBadge(null); }, 2500);
+    return function() { clearTimeout(t); };
+  }, [newBadge]);
 
   function startLesson(mod) { setActiveModule(mod); setScreen("lesson"); }
 
@@ -1257,6 +1328,10 @@ export default function App() {
 
   async function finishLesson(earned, correct, total) {
     var newXP = xp + earned;
+    var score = Math.round(correct / total * 100);
+    var newCompletedModules = activeModule.id !== "practice" && completedModules.indexOf(activeModule.id) === -1
+      ? completedModules.concat([activeModule.id])
+      : completedModules;
     setXP(function(prev) { return prev + earned; });
     if (activeModule.id !== "practice") {
       setCompletedModules(function(prev) { return prev.indexOf(activeModule.id) === -1 ? prev.concat([activeModule.id]) : prev; });
@@ -1264,6 +1339,15 @@ export default function App() {
     }
     setLessonResult({ correct: correct, total: total, xpEarned: earned, moduleName: activeModule.title });
     setScreen("result");
+
+    var earnedIds = checkBadges(newXP, streak, newCompletedModules, score);
+    var newlyEarned = earnedIds.filter(function(id) { return badges.indexOf(id) === -1; });
+    if (newlyEarned.length > 0) {
+      var updatedBadges = badges.concat(newlyEarned);
+      setBadges(updatedBadges);
+      var badgeDef = BADGES.find(function(b) { return b.id === newlyEarned[0]; });
+      setTimeout(function() { setNewBadge(badgeDef); }, 600);
+    }
 
     var d = new Date();
     var today = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -1312,7 +1396,21 @@ export default function App() {
   );
   if (screen === "splash") return <SplashScreen />;
   if (screen === "lesson") return <LessonScreen module={activeModule} onComplete={finishLesson} onExit={goHome} />;
-  if (screen === "result") return <ResultScreen correct={lessonResult.correct} total={lessonResult.total} xpEarned={lessonResult.xpEarned} moduleName={lessonResult.moduleName} onHome={goHome} />;
+  if (screen === "result") return (
+    <View style={{ flex: 1 }}>
+      <ResultScreen correct={lessonResult.correct} total={lessonResult.total} xpEarned={lessonResult.xpEarned} moduleName={lessonResult.moduleName} onHome={goHome} />
+      {newBadge && (
+        <View style={s.badgeOverlay}>
+          <View style={s.badgeOverlayCard}>
+            <Text style={s.badgeOverlayEmoji}>{newBadge.icon}</Text>
+            <Text style={s.badgeOverlayUnlocked}>Badge Unlocked!</Text>
+            <Text style={s.badgeOverlayTitle}>{newBadge.title}</Text>
+            <Text style={s.badgeOverlayDesc}>{newBadge.description}</Text>
+          </View>
+        </View>
+      )}
+    </View>
+  );
   if (screen === "post_detail") return <PostDetailScreen post={activePost} onBack={function() { setActivePost(null); setScreen("home"); setTab("community"); }} />;
 
   return (
@@ -1323,7 +1421,7 @@ export default function App() {
       )}
       {tab === "community" && <CommunityScreen onOpenPost={function(post) { setActivePost(post); setScreen("post_detail"); }} />}
       {tab === "leaderboard" && <LeaderboardScreen />}
-      {tab === "profile" && <ProfileScreen session={session} xp={xp} streak={streak} completedModules={completedModules} moduleXP={moduleXP} onSignOut={handleSignOut} />}
+      {tab === "profile" && <ProfileScreen session={session} xp={xp} streak={streak} completedModules={completedModules} moduleXP={moduleXP} onSignOut={handleSignOut} badges={badges} />}
       <TabBar tab={tab} onTab={setTab} />
     </View>
   );
@@ -1527,6 +1625,19 @@ const s = StyleSheet.create({
   profileNameInput: { fontSize: 28, fontWeight: "800", color: T.text, flex: 1, borderBottomWidth: 1, borderBottomColor: T.border, paddingBottom: 4 },
   profileEditBtn: { marginLeft: 10, padding: 6 },
   profileEditIcon: { fontSize: 16 },
+
+  badgeGrid: { flexDirection: "row", flexWrap: "wrap", marginBottom: 24 },
+  badgeCell: { width: "25%", alignItems: "center", paddingVertical: 14, paddingHorizontal: 4 },
+  badgeCellLocked: { opacity: 0.35 },
+  badgeCellIcon: { fontSize: 28, marginBottom: 5 },
+  badgeCellTitle: { fontSize: 9, fontWeight: "700", color: T.text, textAlign: "center", letterSpacing: 0.3 },
+
+  badgeOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.6)" },
+  badgeOverlayCard: { backgroundColor: T.card, borderRadius: 24, padding: 32, alignItems: "center", borderWidth: 1, borderColor: T.gold + "66", width: "72%" },
+  badgeOverlayEmoji: { fontSize: 64, marginBottom: 12 },
+  badgeOverlayUnlocked: { fontSize: 12, fontWeight: "800", color: T.gold, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 },
+  badgeOverlayTitle: { fontSize: 22, fontWeight: "800", color: T.text, marginBottom: 6, textAlign: "center" },
+  badgeOverlayDesc: { fontSize: 13, color: T.text2, textAlign: "center", lineHeight: 18 },
 
   lbHeader: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12 },
   lbTitle: { fontSize: 28, fontWeight: "800", color: T.text, marginBottom: 4 },
