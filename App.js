@@ -107,6 +107,8 @@ const TRACKS = [
       { id: 4, trackId: "aws", title: "Cloud Concepts", icon: "🌩️", questions: AWS_QUESTIONS.slice(0, 8), color: T.orange, desc: "Regions, AZs, and cloud fundamentals" },
       { id: 5, trackId: "aws", title: "AWS Services", icon: "⚙️", questions: AWS_QUESTIONS.slice(8, 16), color: T.orange, desc: "Compute, storage, database, and networking" },
       { id: 6, trackId: "aws", title: "Security and Billing", icon: "🔐", questions: AWS_QUESTIONS.slice(16, 25), color: T.orange, desc: "IAM, Shield, pricing, and support" },
+      { id: 18, trackId: "aws", title: "Cloud Economics and Security", icon: "💰", questions: AWS_QUESTIONS.slice(25, 45), color: T.orange, desc: "Pricing models, cost tools, deep-dive services, and compliance" },
+      { id: 19, trackId: "aws", title: "Architecture and Migration", icon: "🏗️", questions: AWS_QUESTIONS.slice(45, 75), color: T.orange, desc: "Well-Architected Framework, DR, and migration strategies" },
     ],
   },
   {
