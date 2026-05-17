@@ -193,6 +193,19 @@ function checkBadges(xp, streak, completedModules, lastScore) {
   return earned;
 }
 
+function getDailyQuestion() {
+  var d = new Date();
+  var dateStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  var pool = TRACKS.reduce(function(acc, t) {
+    return acc.concat(t.modules.reduce(function(a, m) { return a.concat(m.questions); }, []));
+  }, []);
+  var hash = 0;
+  for (var i = 0; i < dateStr.length; i++) {
+    hash = (hash * 31 + dateStr.charCodeAt(i)) % pool.length;
+  }
+  return { question: pool[Math.abs(hash)], dateStr: dateStr };
+}
+
 function SplashScreen() {
   var fadeAnim = useRef(new Animated.Value(0)).current;
   var slideAnim = useRef(new Animated.Value(30)).current;
@@ -286,7 +299,7 @@ function AuthScreen({ onAuth }) {
   );
 }
 
-function HomeScreen({ xp, streak, onStart, completedModules, moduleXP, onDashboard, onPractice }) {
+function HomeScreen({ xp, streak, onStart, completedModules, moduleXP, onDashboard, onPractice, dailyChallengeComplete, onStartDaily }) {
   var rank = getRank(xp);
   var nextXP = xp >= 200 ? 200 : xp >= 100 ? 200 : 100;
   var pct = Math.min((xp / nextXP) * 100, 100);
@@ -329,6 +342,29 @@ function HomeScreen({ xp, streak, onStart, completedModules, moduleXP, onDashboa
         <TouchableOpacity style={s.dashboardBtn} onPress={onDashboard} activeOpacity={0.8}>
           <Text style={s.dashboardBtnText}>📊 View Progress Dashboard</Text>
         </TouchableOpacity>
+
+        {(function() {
+          var dc = getDailyQuestion();
+          var dcLabel = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+          return (
+            <View style={s.dailyCard}>
+              <View style={s.dailyCardTop}>
+                <Text style={s.dailyCardTitle}>⚡ Daily Challenge</Text>
+                <Text style={s.dailyCardDate}>{dcLabel}</Text>
+              </View>
+              <Text style={s.dailyCardSub}>Complete today's question for bonus XP</Text>
+              {dailyChallengeComplete ? (
+                <View style={s.dailyDone}>
+                  <Text style={s.dailyDoneText}>✅ Completed +25 XP</Text>
+                </View>
+              ) : (
+                <TouchableOpacity style={s.dailyStartBtn} onPress={onStartDaily} activeOpacity={0.85}>
+                  <Text style={s.dailyStartBtnText}>Start</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          );
+        })()}
 
         {TRACKS.map(function(track, tIdx) {
           return (
@@ -1372,6 +1408,7 @@ export default function App() {
   var [badges, setBadges] = useState([]);
   var [newBadge, setNewBadge] = useState(null);
   var [onboardingDone, setOnboardingDone] = useState(true);
+  var [dailyChallengeComplete, setDailyChallengeComplete] = useState(false);
   var [goalCert, setGoalCert] = useState('');
   var [goalDailyTime, setGoalDailyTime] = useState('');
   var [goalExamDate, setGoalExamDate] = useState('');
@@ -1397,6 +1434,8 @@ export default function App() {
         var storedBadges    = await AsyncStorage.getItem('certforge_badges');
         var storedOnboarding = await AsyncStorage.getItem('certforge_onboarding_complete');
         if (storedOnboarding === null) setOnboardingDone(false);
+        var storedDaily = await AsyncStorage.getItem('certforge_daily_challenge_' + today);
+        if (storedDaily !== null) setDailyChallengeComplete(true);
         var storedGoalCert  = await AsyncStorage.getItem('certforge_goal_cert');
         var storedGoalTime  = await AsyncStorage.getItem('certforge_goal_daily_time');
         var storedGoalDate  = await AsyncStorage.getItem('certforge_goal_exam_date');
@@ -1547,16 +1586,36 @@ export default function App() {
     startLesson({ id: "practice", trackId: "practice", title: "Practice Mode", icon: "🎯", questions: pool.slice(0, 5), color: T.orange, desc: "Random mix from all modules" });
   }
 
+  function startDailyChallenge() {
+    var dc = getDailyQuestion();
+    startLesson({
+      id: 'daily_' + dc.dateStr,
+      trackId: 'daily',
+      title: 'Daily Challenge',
+      icon: '⚡',
+      color: T.gold,
+      desc: 'Daily question for ' + dc.dateStr,
+      questions: [Object.assign({}, dc.question, { xp: 25 })],
+    });
+  }
+
   async function finishLesson(earned, correct, total) {
     var newXP = xp + earned;
     var score = Math.round(correct / total * 100);
-    var newCompletedModules = activeModule.id !== "practice" && completedModules.indexOf(activeModule.id) === -1
+    var isDaily = activeModule.trackId === 'daily';
+    var newCompletedModules = !isDaily && activeModule.id !== "practice" && completedModules.indexOf(activeModule.id) === -1
       ? completedModules.concat([activeModule.id])
       : completedModules;
     setXP(function(prev) { return prev + earned; });
-    if (activeModule.id !== "practice") {
+    if (!isDaily && activeModule.id !== "practice") {
       setCompletedModules(function(prev) { return prev.indexOf(activeModule.id) === -1 ? prev.concat([activeModule.id]) : prev; });
       setModuleXP(function(prev) { return Object.assign({}, prev, { [activeModule.id]: (prev[activeModule.id] || 0) + earned }); });
+    }
+    if (isDaily) {
+      var d0 = new Date();
+      var todayKey = 'certforge_daily_challenge_' + d0.getFullYear() + '-' + String(d0.getMonth() + 1).padStart(2, '0') + '-' + String(d0.getDate()).padStart(2, '0');
+      AsyncStorage.setItem(todayKey, '1');
+      setDailyChallengeComplete(true);
     }
     setLessonResult({ correct: correct, total: total, xpEarned: earned, moduleName: activeModule.title });
     setScreen("result");
@@ -1577,18 +1636,20 @@ export default function App() {
     try { var userRes = await supabase.auth.getUser(); userId = userRes.data.user.id; } catch (_) {}
     if (!userId) return;
 
-    try {
-      await supabase.from('progress').upsert({
-        user_id: userId,
-        module_id: String(activeModule.id),
-        track_id: activeModule.trackId,
-        xp_earned: earned,
-        score_percentage: Math.round(correct / total * 100),
-        correct_answers: correct,
-        total_questions: total,
-        completed_at: now,
-      }, { onConflict: 'user_id,module_id' });
-    } catch (e) { console.log('progress upsert error', e); }
+    if (!isDaily) {
+      try {
+        await supabase.from('progress').upsert({
+          user_id: userId,
+          module_id: String(activeModule.id),
+          track_id: activeModule.trackId,
+          xp_earned: earned,
+          score_percentage: Math.round(correct / total * 100),
+          correct_answers: correct,
+          total_questions: total,
+          completed_at: now,
+        }, { onConflict: 'user_id,module_id' });
+      } catch (e) { console.log('progress upsert error', e); }
+    }
 
     try {
       await supabase.from('user_stats').upsert({
@@ -1645,7 +1706,7 @@ export default function App() {
     <View style={{ flex: 1, backgroundColor: T.bg }}>
       {tab === "learn" && (screen === "dashboard"
         ? <DashboardScreen xp={xp} completedModules={completedModules} moduleXP={moduleXP} onBack={goHome} goalCert={goalCert} />
-        : <HomeScreen xp={xp} streak={streak} onStart={startLesson} completedModules={completedModules} moduleXP={moduleXP} onDashboard={function() { setScreen("dashboard"); }} onPractice={startPractice} />
+        : <HomeScreen xp={xp} streak={streak} onStart={startLesson} completedModules={completedModules} moduleXP={moduleXP} onDashboard={function() { setScreen("dashboard"); }} onPractice={startPractice} dailyChallengeComplete={dailyChallengeComplete} onStartDaily={startDailyChallenge} />
       )}
       {tab === "community" && <CommunityScreen onOpenPost={function(post) { setActivePost(post); setScreen("post_detail"); }} />}
       {tab === "leaderboard" && <LeaderboardScreen />}
@@ -1748,6 +1809,16 @@ const s = StyleSheet.create({
 
   dashboardBtn: { backgroundColor: T.card, borderRadius: 14, paddingVertical: 13, marginBottom: 20, alignItems: "center", borderWidth: 1, borderColor: T.border },
   dashboardBtnText: { color: T.text2, fontWeight: "700", fontSize: 14 },
+
+  dailyCard: { backgroundColor: T.card, borderRadius: 16, padding: 18, marginTop: 12, marginBottom: 4, borderWidth: 1.5, borderColor: T.gold + "55" },
+  dailyCardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
+  dailyCardTitle: { fontSize: 15, fontWeight: "800", color: T.gold },
+  dailyCardDate: { fontSize: 11, color: T.text2 },
+  dailyCardSub: { fontSize: 12, color: T.text2, marginBottom: 14 },
+  dailyStartBtn: { backgroundColor: T.gold, borderRadius: 10, paddingVertical: 10, alignItems: "center" },
+  dailyStartBtnText: { color: "#000", fontWeight: "800", fontSize: 14 },
+  dailyDone: { alignItems: "center", paddingVertical: 8 },
+  dailyDoneText: { color: T.gold, fontWeight: "700", fontSize: 14 },
 
   practiceBtn: { flexDirection: "row", alignItems: "center", backgroundColor: T.orange + "15", borderRadius: 16, padding: 18, marginTop: 12, borderWidth: 1.5, borderColor: T.orange + "66", gap: 14 },
   practiceBtnIcon: { fontSize: 32 },
