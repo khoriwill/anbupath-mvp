@@ -121,6 +121,8 @@ const TRACKS = [
       { id: 7, trackId: "scrum", title: "Scrum Theory", icon: "📖", questions: SCRUM_QUESTIONS.slice(0, 8), color: T.green, desc: "Empiricism, pillars, and Scrum values" },
       { id: 8, trackId: "scrum", title: "Roles and Events", icon: "👥", questions: SCRUM_QUESTIONS.slice(8, 16), color: T.green, desc: "Team roles, Sprint events, and Daily Scrum" },
       { id: 9, trackId: "scrum", title: "Artifacts and Done", icon: "📦", questions: SCRUM_QUESTIONS.slice(16, 25), color: T.green, desc: "Backlogs, Increment, and Definition of Done" },
+      { id: 20, trackId: "scrum", title: "Sprint Execution and Backlog", icon: "🏃", questions: SCRUM_QUESTIONS.slice(25, 45), color: T.green, desc: "Scrum values, sprint mechanics, and backlog management" },
+      { id: 21, trackId: "scrum", title: "Scaling and Leadership", icon: "📈", questions: SCRUM_QUESTIONS.slice(45, 75), color: T.green, desc: "Scaling frameworks, backlog advanced, and Scrum Master servant leadership" },
     ],
   },
   {
