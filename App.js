@@ -149,6 +149,8 @@ const TRACKS = [
       { id: 13, trackId: "security", title: "Threats and Attacks", icon: "⚠️", questions: SECURITY_QUESTIONS.slice(0, 8), color: T.red, desc: "Malware, social engineering, and attack types" },
       { id: 14, trackId: "security", title: "Cryptography and PKI", icon: "🔑", questions: SECURITY_QUESTIONS.slice(8, 16), color: T.red, desc: "Encryption, hashing, and certificate management" },
       { id: 15, trackId: "security", title: "Network Security", icon: "🌐", questions: SECURITY_QUESTIONS.slice(16, 25), color: T.red, desc: "Firewalls, VPNs, and network hardening" },
+      { id: 24, trackId: "security", title: "Implementation and Architecture", icon: "🔧", questions: SECURITY_QUESTIONS.slice(25, 45), color: T.red, desc: "Advanced threats, secure architecture, wireless, PKI, and email security" },
+      { id: 25, trackId: "security", title: "Operations and Compliance", icon: "📜", questions: SECURITY_QUESTIONS.slice(45, 75), color: T.red, desc: "EDR, DLP, SIEM, digital forensics, DR testing, and GRC frameworks" },
     ],
   },
 ];
