@@ -135,6 +135,8 @@ const TRACKS = [
       { id: 10, trackId: "cism", title: "Security Governance", icon: "🏛️", questions: CISM_QUESTIONS.slice(0, 8), color: T.purple, desc: "Governance frameworks, strategy, and alignment" },
       { id: 11, trackId: "cism", title: "Risk Management", icon: "⚖️", questions: CISM_QUESTIONS.slice(8, 16), color: T.purple, desc: "Risk assessment, response, and treatment" },
       { id: 12, trackId: "cism", title: "Incident Management", icon: "🚨", questions: CISM_QUESTIONS.slice(16, 25), color: T.purple, desc: "Incident response, recovery, and lessons learned" },
+      { id: 22, trackId: "cism", title: "Risk and Program Management", icon: "🛡️", questions: CISM_QUESTIONS.slice(25, 45), color: T.purple, desc: "Governance deep dive, advanced risk, and security program" },
+      { id: 23, trackId: "cism", title: "Incidents and Emerging Threats", icon: "🔍", questions: CISM_QUESTIONS.slice(45, 75), color: T.purple, desc: "Incident lifecycle, forensics, BCP/DR, and emerging security topics" },
     ],
   },
   {
