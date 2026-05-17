@@ -1111,22 +1111,70 @@ const ONBOARDING_SLIDES = [
   { icon: '⚒️', title: 'Welcome to CertForge', subtitle: 'The certification training dojo. Forge your skills one question at a time.' },
   { icon: '🏆', title: 'Earn XP. Rank Up.', subtitle: 'Answer questions, earn XP, and climb from Apprentice to Journeyman to Master. Every correct answer forges your rank.' },
   { icon: '🎯', title: 'Pick Your Track', subtitle: 'PMP. AWS. CISM. Security+. Scrum. Choose your certification and start forging today.' },
+  { title: 'Set Your Goal', subtitle: 'Tell us about your certification journey so we can personalize your experience.' },
 ];
+const GOAL_CERTS = ['PMP', 'AWS', 'Scrum', 'CISM', 'Security+'];
+const GOAL_TIMES = ['15 min', '30 min', '1 hour', '2+ hours'];
 
 function OnboardingScreen({ onComplete }) {
   var [slide, setSlide] = useState(0);
+  var [goalCert, setGoalCert] = useState('');
+  var [goalTime, setGoalTime] = useState('');
+  var [goalDate, setGoalDate] = useState('');
   var isLast = slide === ONBOARDING_SLIDES.length - 1;
   var current = ONBOARDING_SLIDES[slide];
   function handleNext() {
-    if (isLast) { onComplete(); } else { setSlide(slide + 1); }
+    if (isLast) { onComplete(goalCert, goalTime, goalDate); } else { setSlide(slide + 1); }
   }
   return (
     <SafeAreaView style={[s.safe, s.center]}>
-      <View style={s.onboardingSlide}>
-        <Text style={s.onboardingIcon}>{current.icon}</Text>
-        <Text style={s.onboardingTitle}>{current.title}</Text>
-        <Text style={s.onboardingSubtitle}>{current.subtitle}</Text>
-      </View>
+      {slide < 3 ? (
+        <View style={s.onboardingSlide}>
+          <Text style={s.onboardingIcon}>{current.icon}</Text>
+          <Text style={s.onboardingTitle}>{current.title}</Text>
+          <Text style={s.onboardingSubtitle}>{current.subtitle}</Text>
+        </View>
+      ) : (
+        <ScrollView style={{ flex: 1, width: '100%' }} contentContainerStyle={s.onboardingGoalSlide} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <Text style={s.onboardingTitle}>{current.title}</Text>
+          <Text style={[s.onboardingSubtitle, { marginBottom: 28 }]}>{current.subtitle}</Text>
+
+          <Text style={s.onboardingGoalLabel}>Primary certification target</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.onboardingChipScroll} style={{ marginBottom: 24 }}>
+            {GOAL_CERTS.map(function(cert) {
+              var active = goalCert === cert;
+              return (
+                <TouchableOpacity key={cert} style={[s.onboardingChip, active && s.onboardingChipActive]} onPress={function() { setGoalCert(active ? '' : cert); }} activeOpacity={0.8}>
+                  <Text style={[s.onboardingChipText, active && s.onboardingChipTextActive]}>{cert}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
+          <Text style={s.onboardingGoalLabel}>Daily study time</Text>
+          <View style={s.onboardingChipRow}>
+            {GOAL_TIMES.map(function(t) {
+              var active = goalTime === t;
+              return (
+                <TouchableOpacity key={t} style={[s.onboardingChip, active && s.onboardingChipActive]} onPress={function() { setGoalTime(active ? '' : t); }} activeOpacity={0.8}>
+                  <Text style={[s.onboardingChipText, active && s.onboardingChipTextActive]}>{t}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <Text style={s.onboardingGoalLabel}>Exam date (optional)</Text>
+          <TextInput
+            style={s.onboardingDateInput}
+            value={goalDate}
+            onChangeText={setGoalDate}
+            placeholder="MM/DD/YYYY"
+            placeholderTextColor={T.text2}
+            keyboardType="numbers-and-punctuation"
+            maxLength={10}
+          />
+        </ScrollView>
+      )}
       <View style={s.onboardingDots}>
         {ONBOARDING_SLIDES.map(function(_, i) {
           return <View key={i} style={[s.onboardingDot, i === slide && s.onboardingDotActive]} />;
@@ -1245,6 +1293,9 @@ export default function App() {
   var [badges, setBadges] = useState([]);
   var [newBadge, setNewBadge] = useState(null);
   var [onboardingDone, setOnboardingDone] = useState(true);
+  var [goalCert, setGoalCert] = useState('');
+  var [goalDailyTime, setGoalDailyTime] = useState('');
+  var [goalExamDate, setGoalExamDate] = useState('');
 
   useEffect(function() {
     supabase.auth.getSession().then(function(result) {
@@ -1267,6 +1318,12 @@ export default function App() {
         var storedBadges    = await AsyncStorage.getItem('certforge_badges');
         var storedOnboarding = await AsyncStorage.getItem('certforge_onboarding_complete');
         if (storedOnboarding === null) setOnboardingDone(false);
+        var storedGoalCert  = await AsyncStorage.getItem('certforge_goal_cert');
+        var storedGoalTime  = await AsyncStorage.getItem('certforge_goal_daily_time');
+        var storedGoalDate  = await AsyncStorage.getItem('certforge_goal_exam_date');
+        if (storedGoalCert)  setGoalCert(storedGoalCert);
+        if (storedGoalTime)  setGoalDailyTime(storedGoalTime);
+        if (storedGoalDate)  setGoalExamDate(storedGoalDate);
 
         var d = new Date();
         var today = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -1479,8 +1536,11 @@ export default function App() {
       <Text style={{ color: T.text2, fontSize: 16, fontWeight: '600' }}>Forging your progress...</Text>
     </SafeAreaView>
   );
-  if (!onboardingDone) return <OnboardingScreen onComplete={function() {
+  if (!onboardingDone) return <OnboardingScreen onComplete={function(cert, time, date) {
     AsyncStorage.setItem('certforge_onboarding_complete', '1');
+    if (cert) { AsyncStorage.setItem('certforge_goal_cert', cert); setGoalCert(cert); }
+    if (time) { AsyncStorage.setItem('certforge_goal_daily_time', time); setGoalDailyTime(time); }
+    if (date) { AsyncStorage.setItem('certforge_goal_exam_date', date); setGoalExamDate(date); }
     setOnboardingDone(true);
   }} />;
   if (screen === "splash") return <SplashScreen />;
@@ -1726,6 +1786,15 @@ const s = StyleSheet.create({
   onboardingDotActive: { backgroundColor: T.accent, width: 20 },
   onboardingBtn: { backgroundColor: T.accent, borderRadius: 14, paddingVertical: 16, alignItems: "center", marginBottom: 40, marginHorizontal: 24, alignSelf: "stretch" },
   onboardingBtnText: { color: "#fff", fontWeight: "800", fontSize: 16 },
+  onboardingGoalSlide: { paddingHorizontal: 24, paddingTop: 28, paddingBottom: 8 },
+  onboardingGoalLabel: { fontSize: 11, fontWeight: "700", color: T.text2, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 10 },
+  onboardingChipScroll: { flexDirection: "row", gap: 8, paddingRight: 8 },
+  onboardingChipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 24 },
+  onboardingChip: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: T.border, backgroundColor: T.card2 },
+  onboardingChipActive: { backgroundColor: T.accent, borderColor: T.accent },
+  onboardingChipText: { fontSize: 13, fontWeight: "700", color: T.text2 },
+  onboardingChipTextActive: { color: "#fff" },
+  onboardingDateInput: { backgroundColor: T.card2, color: T.text, borderRadius: 12, padding: 14, fontSize: 15, borderWidth: 1, borderColor: T.border },
 
   badgeGrid: { flexDirection: "row", flexWrap: "wrap", marginBottom: 24 },
   badgeCell: { width: "25%", alignItems: "center", paddingVertical: 14, paddingHorizontal: 4 },
