@@ -13,6 +13,7 @@ const T = {
   bg: '#0a0a0f', card: '#12121f', card2: '#1a1a2e',
   accent: '#ff4757', gold: '#ffd700', green: '#2ed573',
   blue: '#4cc9f0', purple: '#7b2fff', orange: '#ff6b35', red: '#ef233c',
+  amber: '#f59e0b',
   text: '#ffffff', text2: '#8892a4', border: '#1e2035',
 };
 
@@ -150,6 +151,22 @@ function getRank(xp) {
   if (xp >= 200) return { title: "Master", color: T.gold };
   if (xp >= 100) return { title: "Journeyman", color: T.purple };
   return { title: "Apprentice", color: T.blue };
+}
+
+function calcReadiness(track, completedModules, moduleXP) {
+  var mods = track.modules;
+  var done = mods.filter(function(m) { return completedModules.indexOf(m.id) !== -1; });
+  var base = (done.length / mods.length) * 70;
+  var bonus = 0;
+  if (done.length > 0) {
+    var totalAcc = done.reduce(function(sum, m) {
+      var earned = moduleXP[m.id] || 0;
+      var maxXP = m.questions.reduce(function(a, q) { return a + q.xp; }, 0);
+      return sum + (maxXP > 0 ? (earned / maxXP) * 100 : 0);
+    }, 0);
+    bonus = (totalAcc / done.length) * 0.30;
+  }
+  return Math.min(Math.round(base + bonus), 100);
 }
 
 const BADGES = [
@@ -582,7 +599,39 @@ function ResultScreen({ correct, total, xpEarned, moduleName, onHome }) {
   );
 }
 
-function DashboardScreen({ xp, completedModules, moduleXP, onBack }) {
+function ReadinessRing({ pct, color, size }) {
+  var half = size / 2;
+  var bw = Math.round(size * 0.1);
+  var p = Math.min(Math.max(pct, 0), 100);
+  // rRot: -180° (0%) → 0° (50%) — sweeps clockwise through right half
+  var rRot = -180 + (Math.min(p, 50) / 50) * 180;
+  // lRot: 180° (50%) → 0° (100%) — sweeps clockwise through left half
+  var lRot = 180 - (Math.max(p - 50, 0) / 50) * 180;
+  return (
+    <View style={{ width: size, height: size }}>
+      {/* Gray background ring */}
+      <View style={{ position: 'absolute', width: size, height: size, borderRadius: half, borderWidth: bw, borderColor: T.border }} />
+      {/* Right half: fills 0→50% by rotating a colored rectangle into the right clip */}
+      <View style={{ position: 'absolute', top: 0, left: half, width: half, height: size, overflow: 'hidden' }}>
+        <View style={{ position: 'absolute', top: 0, left: -half, width: size, height: size, transform: [{ rotate: rRot + 'deg' }] }}>
+          <View style={{ position: 'absolute', top: 0, left: half, width: half, height: size, backgroundColor: color }} />
+        </View>
+      </View>
+      {/* Left half: fills 50→100% */}
+      {p > 50 && (
+        <View style={{ position: 'absolute', top: 0, left: 0, width: half, height: size, overflow: 'hidden' }}>
+          <View style={{ position: 'absolute', top: 0, left: 0, width: size, height: size, transform: [{ rotate: lRot + 'deg' }] }}>
+            <View style={{ position: 'absolute', top: 0, left: 0, width: half, height: size, backgroundColor: color }} />
+          </View>
+        </View>
+      )}
+      {/* Inner circle creates donut hole */}
+      <View style={{ position: 'absolute', top: bw, left: bw, width: size - bw * 2, height: size - bw * 2, borderRadius: (size - bw * 2) / 2, backgroundColor: T.bg }} />
+    </View>
+  );
+}
+
+function DashboardScreen({ xp, completedModules, moduleXP, onBack, goalCert }) {
   var rank = getRank(xp);
   var nextThreshold = xp >= 200 ? 200 : xp >= 100 ? 200 : 100;
   var prevThreshold = xp >= 200 ? 100 : 0;
@@ -593,6 +642,24 @@ function DashboardScreen({ xp, completedModules, moduleXP, onBack }) {
   var totalPossibleXP = allModules.reduce(function(sum, mod) {
     return sum + mod.questions.reduce(function(a, q) { return a + q.xp; }, 0);
   }, 0);
+
+  var CERT_TRACK_MAP = { 'PMP': 'pmp', 'AWS': 'aws', 'Scrum': 'scrum', 'CISM': 'cism', 'Security+': 'security' };
+  var goalTrack = goalCert ? TRACKS.find(function(t) { return t.id === CERT_TRACK_MAP[goalCert]; }) : null;
+  var readinessPct, readinessTrackName;
+  if (goalTrack) {
+    readinessPct = calcReadiness(goalTrack, completedModules, moduleXP);
+    readinessTrackName = goalCert;
+  } else {
+    var allReadiness = TRACKS.map(function(t) { return calcReadiness(t, completedModules, moduleXP); });
+    readinessPct = Math.round(allReadiness.reduce(function(a, b) { return a + b; }, 0) / allReadiness.length);
+    readinessTrackName = "All Tracks";
+  }
+  var readinessColor = readinessPct >= 90 ? T.green : readinessPct >= 70 ? T.blue : readinessPct >= 40 ? T.amber : T.red;
+  var readinessMotivation = readinessPct === 100
+    ? "You are ready to forge your certification"
+    : readinessPct >= 70 ? "Almost there — push to the finish"
+    : readinessPct >= 40 ? "Good progress — stay consistent"
+    : "Keep forging — you are just getting started";
 
   var scaleAnim = useRef(new Animated.Value(0)).current;
   useEffect(function() {
@@ -612,6 +679,18 @@ function DashboardScreen({ xp, completedModules, moduleXP, onBack }) {
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
 
         <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+
+          <View style={s.readinessCard}>
+            <View style={s.readinessRingWrap}>
+              <ReadinessRing pct={readinessPct} color={readinessColor} size={140} />
+              <View style={s.readinessCenter}>
+                <Text style={[s.readinessPct, { color: readinessColor }]}>{readinessPct}%</Text>
+              </View>
+            </View>
+            <Text style={s.readinessLabel}>Exam Readiness</Text>
+            <Text style={[s.readinessTrack, { color: readinessColor }]}>{readinessTrackName}</Text>
+            <Text style={s.readinessMotivation}>{readinessMotivation}</Text>
+          </View>
 
           <View style={s.dashOverallCard}>
             <Text style={s.dashCardLabel}>Overall Completion</Text>
@@ -1565,7 +1644,7 @@ export default function App() {
   return (
     <View style={{ flex: 1, backgroundColor: T.bg }}>
       {tab === "learn" && (screen === "dashboard"
-        ? <DashboardScreen xp={xp} completedModules={completedModules} moduleXP={moduleXP} onBack={goHome} />
+        ? <DashboardScreen xp={xp} completedModules={completedModules} moduleXP={moduleXP} onBack={goHome} goalCert={goalCert} />
         : <HomeScreen xp={xp} streak={streak} onStart={startLesson} completedModules={completedModules} moduleXP={moduleXP} onDashboard={function() { setScreen("dashboard"); }} onPractice={startPractice} />
       )}
       {tab === "community" && <CommunityScreen onOpenPost={function(post) { setActivePost(post); setScreen("post_detail"); }} />}
@@ -1677,6 +1756,14 @@ const s = StyleSheet.create({
 
   dashHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, backgroundColor: T.bg },
   dashTitle: { fontSize: 17, fontWeight: "800", color: T.text },
+
+  readinessCard: { backgroundColor: T.card, borderRadius: 20, padding: 24, marginBottom: 14, borderWidth: 1, borderColor: T.border, alignItems: "center" },
+  readinessRingWrap: { width: 140, height: 140, marginBottom: 16, alignItems: "center", justifyContent: "center" },
+  readinessCenter: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" },
+  readinessPct: { fontSize: 36, fontWeight: "800", lineHeight: 40 },
+  readinessLabel: { fontSize: 11, color: T.text2, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 4 },
+  readinessTrack: { fontSize: 15, fontWeight: "800", marginBottom: 10 },
+  readinessMotivation: { fontSize: 13, color: T.text2, textAlign: "center", lineHeight: 18 },
 
   dashOverallCard: { backgroundColor: T.card, borderRadius: 16, padding: 20, marginBottom: 14, borderWidth: 1, borderColor: T.border, alignItems: "center" },
   dashBigPct: { fontSize: 56, fontWeight: "800", color: T.accent, marginBottom: 10, lineHeight: 64 },
