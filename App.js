@@ -7,7 +7,7 @@ import { AWS_QUESTIONS } from './content/aws-questions';
 import { SCRUM_QUESTIONS } from './content/scrum-questions';
 import { CISM_QUESTIONS } from './content/cism-questions';
 import { SECURITY_QUESTIONS } from './content/security-questions';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, ScrollView, Animated, KeyboardAvoidingView, Platform } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, ScrollView, Animated, KeyboardAvoidingView, Platform, Linking } from 'react-native';
 
 const T = {
   bg: '#0a0a0f', card: '#12121f', card2: '#1a1a2e',
@@ -314,7 +314,7 @@ function AuthScreen({ onAuth }) {
   );
 }
 
-function HomeScreen({ xp, streak, onStart, completedModules, moduleXP, onDashboard, onPractice, dailyChallengeComplete, onStartDaily }) {
+function HomeScreen({ xp, streak, onStart, completedModules, moduleXP, onDashboard, onPractice, dailyChallengeComplete, onStartDaily, weakAreas }) {
   var rank = getRank(xp);
   var nextXP = xp >= 200 ? 200 : xp >= 100 ? 200 : 100;
   var pct = Math.min((xp / nextXP) * 100, 100);
@@ -400,6 +400,9 @@ function HomeScreen({ xp, streak, onStart, completedModules, moduleXP, onDashboa
                       <Text style={[s.moduleName, isLocked && { color: T.text2 }]}>{mod.title}</Text>
                       <Text style={s.moduleDesc}>{isLocked ? "Complete previous module first" : mod.desc}</Text>
                       <Text style={s.moduleMeta}>{mod.questions.length} questions · {mod.questions.reduce(function(a, q) { return a + q.xp; }, 0)} XP</Text>
+                      {!isLocked && weakAreas && weakAreas.indexOf(mod.id) !== -1 && (
+                        <Text style={s.weakAreaLabel}>⚠️ Focus Here</Text>
+                      )}
                     </View>
                     <View style={s.moduleRight}>
                       {!isCompleted && !isLocked && <View style={[s.startBtn, { backgroundColor: mod.color }]}><Text style={s.startBtnText}>Start</Text></View>}
@@ -1119,12 +1122,20 @@ function PostDetailScreen({ post, onBack }) {
   );
 }
 
-function ProfileScreen({ session, xp, streak, completedModules, moduleXP, onSignOut, badges }) {
+function ProfileScreen({ session, xp, streak, completedModules, moduleXP, onSignOut, badges, goalCert }) {
   var [email, setEmail] = useState("");
   var [username, setUsername] = useState("Forger");
   var [editing, setEditing] = useState(false);
   var [editValue, setEditValue] = useState("");
+  var [showAbout, setShowAbout] = useState(false);
   var rank = getRank(xp);
+
+  function shareOnLinkedIn() {
+    var certTag = goalCert ? ' #' + goalCert.replace(/[^a-zA-Z0-9]/g, '') : '';
+    var text = 'I just reached ' + rank.title + ' rank on CertForge with ' + xp + ' XP! Studying for my certification with the best cert prep app out there. #CertForge' + certTag + ' #Certification';
+    var url = 'https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fcertforge.app&summary=' + encodeURIComponent(text);
+    Linking.openURL(url);
+  }
   var allModules = TRACKS.reduce(function(acc, t) { return acc.concat(t.modules); }, []);
   var doneModules = allModules.filter(function(m) { return completedModules.indexOf(m.id) !== -1; });
 
@@ -1153,6 +1164,7 @@ function ProfileScreen({ session, xp, streak, completedModules, moduleXP, onSign
   }
 
   return (
+    <View style={{ flex: 1 }}>
     <SafeAreaView style={s.safe}>
       <ScrollView contentContainerStyle={s.scrollTabbed} showsVerticalScrollIndicator={false}>
         <View style={s.profileNameRow}>
@@ -1209,6 +1221,10 @@ function ProfileScreen({ session, xp, streak, completedModules, moduleXP, onSign
           })}
         </View>
 
+        <TouchableOpacity style={s.linkedInBtn} onPress={shareOnLinkedIn} activeOpacity={0.85}>
+          <Text style={s.linkedInBtnText}>Share on LinkedIn</Text>
+        </TouchableOpacity>
+
         <Text style={s.profileSectionTitle}>Completed Modules</Text>
         {doneModules.length === 0 && (
           <Text style={s.profileEmpty}>No modules completed yet. Start forging!</Text>
@@ -1229,8 +1245,31 @@ function ProfileScreen({ session, xp, streak, completedModules, moduleXP, onSign
         <TouchableOpacity style={s.signOutBtn} onPress={onSignOut} activeOpacity={0.8}>
           <Text style={s.signOutBtnText}>Sign Out</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity style={s.aboutRow} onPress={function() { setShowAbout(true); }} activeOpacity={0.8}>
+          <Text style={s.aboutRowText}>About CertForge ℹ️</Text>
+          <Text style={s.aboutRowArrow}>›</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
+
+    {showAbout && (
+      <View style={s.aboutOverlay}>
+        <SafeAreaView style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <View style={s.aboutCard}>
+            <Text style={s.aboutCardIcon}>⚒️</Text>
+            <Text style={s.aboutCardName}>CertForge</Text>
+            <Text style={s.aboutCardVersion}>Beta 1.0</Text>
+            <Text style={s.aboutCardMission}>{"CertForge was built to make professional certification accessible, engaging, and actually enjoyable. No more boring PDFs. No more static question banks. Just daily training that forges real knowledge."}</Text>
+            <Text style={s.aboutCardCreds}>Built by a certified professional — AWS Solutions Architect · CISM · PMP · PSM II</Text>
+            <TouchableOpacity style={s.aboutCloseBtn} onPress={function() { setShowAbout(false); }} activeOpacity={0.85}>
+              <Text style={s.aboutCloseBtnText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </View>
+    )}
+    </View>
   );
 }
 
@@ -1421,6 +1460,7 @@ export default function App() {
   var [newBadge, setNewBadge] = useState(null);
   var [onboardingDone, setOnboardingDone] = useState(true);
   var [dailyChallengeComplete, setDailyChallengeComplete] = useState(false);
+  var [weakAreas, setWeakAreas] = useState([]);
   var [goalCert, setGoalCert] = useState('');
   var [goalDailyTime, setGoalDailyTime] = useState('');
   var [goalExamDate, setGoalExamDate] = useState('');
@@ -1448,6 +1488,8 @@ export default function App() {
         if (storedOnboarding === null) setOnboardingDone(false);
         var storedDaily = await AsyncStorage.getItem('certforge_daily_challenge_' + today);
         if (storedDaily !== null) setDailyChallengeComplete(true);
+        var storedWeakAreas = await AsyncStorage.getItem('certforge_weak_areas');
+        if (storedWeakAreas !== null) setWeakAreas(JSON.parse(storedWeakAreas));
         var storedGoalCert  = await AsyncStorage.getItem('certforge_goal_cert');
         var storedGoalTime  = await AsyncStorage.getItem('certforge_goal_daily_time');
         var storedGoalDate  = await AsyncStorage.getItem('certforge_goal_exam_date');
@@ -1632,6 +1674,13 @@ export default function App() {
     setLessonResult({ correct: correct, total: total, xpEarned: earned, moduleName: activeModule.title });
     setScreen("result");
 
+    if (!isDaily && activeModule.id !== 'practice') {
+      var withoutCurrent = weakAreas.filter(function(id) { return id !== activeModule.id; });
+      var updatedWeakAreas = score < 70 ? withoutCurrent.concat([activeModule.id]) : withoutCurrent;
+      setWeakAreas(updatedWeakAreas);
+      AsyncStorage.setItem('certforge_weak_areas', JSON.stringify(updatedWeakAreas));
+    }
+
     var earnedIds = checkBadges(newXP, streak, newCompletedModules, score);
     var newlyEarned = earnedIds.filter(function(id) { return badges.indexOf(id) === -1; });
     if (newlyEarned.length > 0) {
@@ -1718,11 +1767,11 @@ export default function App() {
     <View style={{ flex: 1, backgroundColor: T.bg }}>
       {tab === "learn" && (screen === "dashboard"
         ? <DashboardScreen xp={xp} completedModules={completedModules} moduleXP={moduleXP} onBack={goHome} goalCert={goalCert} />
-        : <HomeScreen xp={xp} streak={streak} onStart={startLesson} completedModules={completedModules} moduleXP={moduleXP} onDashboard={function() { setScreen("dashboard"); }} onPractice={startPractice} dailyChallengeComplete={dailyChallengeComplete} onStartDaily={startDailyChallenge} />
+        : <HomeScreen xp={xp} streak={streak} onStart={startLesson} completedModules={completedModules} moduleXP={moduleXP} onDashboard={function() { setScreen("dashboard"); }} onPractice={startPractice} dailyChallengeComplete={dailyChallengeComplete} onStartDaily={startDailyChallenge} weakAreas={weakAreas} />
       )}
       {tab === "community" && <CommunityScreen onOpenPost={function(post) { setActivePost(post); setScreen("post_detail"); }} />}
       {tab === "leaderboard" && <LeaderboardScreen />}
-      {tab === "profile" && <ProfileScreen session={session} xp={xp} streak={streak} completedModules={completedModules} moduleXP={moduleXP} onSignOut={handleSignOut} badges={badges} />}
+      {tab === "profile" && <ProfileScreen session={session} xp={xp} streak={streak} completedModules={completedModules} moduleXP={moduleXP} onSignOut={handleSignOut} badges={badges} goalCert={goalCert} />}
       <TabBar tab={tab} onTab={setTab} />
     </View>
   );
@@ -1939,6 +1988,21 @@ const s = StyleSheet.create({
   profileModuleXP: { fontSize: 15, fontWeight: "800" },
   signOutBtn: { marginTop: 24, backgroundColor: T.card, borderRadius: 14, paddingVertical: 15, alignItems: "center", borderWidth: 1, borderColor: T.accent + "55" },
   signOutBtnText: { color: T.accent, fontWeight: "800", fontSize: 15 },
+  weakAreaLabel: { fontSize: 11, color: T.amber, fontWeight: "700", marginTop: 3 },
+  linkedInBtn: { backgroundColor: '#0077B5', borderRadius: 14, paddingVertical: 14, alignItems: "center", marginBottom: 20 },
+  linkedInBtnText: { color: "#fff", fontWeight: "800", fontSize: 15 },
+  aboutRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: T.card, borderRadius: 14, padding: 16, marginTop: 12, borderWidth: 1, borderColor: T.border },
+  aboutRowText: { color: T.text, fontSize: 15, fontWeight: "600" },
+  aboutRowArrow: { color: T.text2, fontSize: 20, fontWeight: "300" },
+  aboutOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: T.bg },
+  aboutCard: { backgroundColor: T.card, borderRadius: 24, padding: 32, width: "100%", borderWidth: 1, borderColor: T.border, alignItems: "center" },
+  aboutCardIcon: { fontSize: 56, marginBottom: 12 },
+  aboutCardName: { fontSize: 28, fontWeight: "800", color: T.text, marginBottom: 4 },
+  aboutCardVersion: { fontSize: 13, color: T.text2, marginBottom: 24 },
+  aboutCardMission: { fontSize: 14, color: T.text2, lineHeight: 22, textAlign: "center", marginBottom: 16 },
+  aboutCardCreds: { fontSize: 12, color: T.text2, textAlign: "center", marginBottom: 28, lineHeight: 18 },
+  aboutCloseBtn: { backgroundColor: T.accent, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 40, alignItems: "center" },
+  aboutCloseBtnText: { color: "#fff", fontWeight: "800", fontSize: 15 },
 
   profileNameRow: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
   profileNameInput: { fontSize: 28, fontWeight: "800", color: T.text, flex: 1, borderBottomWidth: 1, borderBottomColor: T.border, paddingBottom: 4 },
