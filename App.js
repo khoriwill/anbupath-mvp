@@ -178,25 +178,32 @@ function calcReadiness(track, completedModules, moduleXP) {
 }
 
 const BADGES = [
-  { id: 'first_lesson',  title: 'First Forge',    description: 'Complete your first lesson',  icon: '🔨' },
-  { id: 'perfect_score', title: 'Flawless',        description: 'Score 100% on any lesson',    icon: '⭐' },
-  { id: 'streak_3',      title: 'On Fire',         description: 'Maintain a 3-day streak',     icon: '🔥' },
-  { id: 'streak_7',      title: 'Weekly Warrior',  description: '7-day streak',                icon: '⚡' },
-  { id: 'pmp_complete',  title: 'PMP Forged',      description: 'Complete all PMP modules',    icon: '📋' },
-  { id: 'aws_complete',  title: 'Cloud Forged',    description: 'Complete all AWS modules',    icon: '☁️' },
-  { id: 'all_tracks',    title: 'Master Forger',   description: 'Complete all 5 tracks',       icon: '🏆' },
-  { id: 'rank_master',   title: 'Ascended',        description: 'Reach Master rank',           icon: '👑' },
+  { id: 'first_lesson',     title: 'First Forge',     description: 'Complete your first lesson',      icon: '🔨' },
+  { id: 'perfect_score',    title: 'Flawless',         description: 'Score 100% on any lesson',        icon: '⭐' },
+  { id: 'streak_3',         title: 'On Fire',          description: 'Maintain a 3-day streak',         icon: '🔥' },
+  { id: 'streak_7',         title: 'Weekly Warrior',   description: '7-day streak',                    icon: '⚡' },
+  { id: 'pmp_complete',     title: 'PMP Forged',       description: 'Complete all PMP modules',        icon: '📋' },
+  { id: 'aws_complete',     title: 'Cloud Forged',     description: 'Complete all AWS modules',        icon: '☁️' },
+  { id: 'scrum_complete',   title: 'Scrum Forged',     description: 'Complete all Scrum modules',      icon: '🔄' },
+  { id: 'cism_complete',    title: 'CISM Forged',      description: 'Complete all CISM modules',       icon: '🔐' },
+  { id: 'security_complete', title: 'Security Forged', description: 'Complete all Security+ modules',  icon: '🛡️' },
+  { id: 'all_tracks',       title: 'Master Forger',    description: 'Complete all 5 tracks',           icon: '🏆' },
+  { id: 'rank_master',      title: 'Ascended',         description: 'Reach Master rank',               icon: '👑' },
 ];
 
 function checkBadges(xp, streak, completedModules, lastScore) {
+  var has = function(ids) { return ids.every(function(id) { return completedModules.indexOf(id) !== -1; }); };
   var earned = [];
   if (completedModules.length >= 1) earned.push('first_lesson');
   if (lastScore === 100) earned.push('perfect_score');
   if (streak >= 3) earned.push('streak_3');
   if (streak >= 7) earned.push('streak_7');
-  if ([1, 2, 3].every(function(id) { return completedModules.indexOf(id) !== -1; })) earned.push('pmp_complete');
-  if ([4, 5, 6].every(function(id) { return completedModules.indexOf(id) !== -1; })) earned.push('aws_complete');
-  if (completedModules.length >= 15) earned.push('all_tracks');
+  if (has([1, 2, 3, 16, 17])) earned.push('pmp_complete');
+  if (has([4, 5, 6, 18, 19])) earned.push('aws_complete');
+  if (has([7, 8, 9, 20, 21])) earned.push('scrum_complete');
+  if (has([10, 11, 12, 22, 23])) earned.push('cism_complete');
+  if (has([13, 14, 15, 24, 25])) earned.push('security_complete');
+  if (completedModules.length >= 25) earned.push('all_tracks');
   if (xp >= 200) earned.push('rank_master');
   return earned;
 }
@@ -1112,7 +1119,7 @@ function PostDetailScreen({ post, onBack }) {
   );
 }
 
-function ProfileScreen({ session, xp, streak, completedModules, moduleXP, onSignOut, badges, onResetOnboarding }) {
+function ProfileScreen({ session, xp, streak, completedModules, moduleXP, onSignOut, badges }) {
   var [email, setEmail] = useState("");
   var [username, setUsername] = useState("Forger");
   var [editing, setEditing] = useState(false);
@@ -1221,9 +1228,6 @@ function ProfileScreen({ session, xp, streak, completedModules, moduleXP, onSign
 
         <TouchableOpacity style={s.signOutBtn} onPress={onSignOut} activeOpacity={0.8}>
           <Text style={s.signOutBtnText}>Sign Out</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={s.resetOnboardingBtn} onPress={onResetOnboarding} activeOpacity={0.8}>
-          <Text style={s.resetOnboardingText}>[DEV] Reset Onboarding</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -1718,7 +1722,7 @@ export default function App() {
       )}
       {tab === "community" && <CommunityScreen onOpenPost={function(post) { setActivePost(post); setScreen("post_detail"); }} />}
       {tab === "leaderboard" && <LeaderboardScreen />}
-      {tab === "profile" && <ProfileScreen session={session} xp={xp} streak={streak} completedModules={completedModules} moduleXP={moduleXP} onSignOut={handleSignOut} badges={badges} onResetOnboarding={function() { AsyncStorage.removeItem('certforge_onboarding_complete'); setOnboardingDone(false); }} />}
+      {tab === "profile" && <ProfileScreen session={session} xp={xp} streak={streak} completedModules={completedModules} moduleXP={moduleXP} onSignOut={handleSignOut} badges={badges} />}
       <TabBar tab={tab} onTab={setTab} />
     </View>
   );
@@ -1935,8 +1939,6 @@ const s = StyleSheet.create({
   profileModuleXP: { fontSize: 15, fontWeight: "800" },
   signOutBtn: { marginTop: 24, backgroundColor: T.card, borderRadius: 14, paddingVertical: 15, alignItems: "center", borderWidth: 1, borderColor: T.accent + "55" },
   signOutBtnText: { color: T.accent, fontWeight: "800", fontSize: 15 },
-  resetOnboardingBtn: { marginTop: 12, paddingVertical: 12, alignItems: "center" },
-  resetOnboardingText: { color: T.text2, fontSize: 12, fontWeight: "600" },
 
   profileNameRow: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
   profileNameInput: { fontSize: 28, fontWeight: "800", color: T.text, flex: 1, borderBottomWidth: 1, borderBottomColor: T.border, paddingBottom: 4 },
