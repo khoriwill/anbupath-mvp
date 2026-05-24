@@ -9,13 +9,7 @@ import { CISM_QUESTIONS } from './content/cism-questions';
 import { SECURITY_QUESTIONS } from './content/security-questions';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, ScrollView, Animated, KeyboardAvoidingView, Platform, Linking } from 'react-native';
 
-const T = {
-  bg: '#0a0a0f', card: '#12121f', card2: '#1a1a2e',
-  accent: '#ff4757', gold: '#ffd700', green: '#2ed573',
-  blue: '#4cc9f0', purple: '#7b2fff', orange: '#ff6b35', red: '#ef233c',
-  amber: '#f59e0b',
-  text: '#ffffff', text2: '#8892a4', border: '#1e2035',
-};
+import { T } from './constants/theme';
 
 const QUESTIONS = [
   { id: 1, question: "A project manager notices the team is consistently missing deadlines. What should they do FIRST?", options: ["Escalate to the sponsor immediately", "Identify the root cause of the delays", "Add more resources to the project", "Update the project schedule"], correct: 1, explanation: "Always identify root cause first. Adding resources or escalating without understanding WHY delays happen will not fix the problem.", xp: 10 },
