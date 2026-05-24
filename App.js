@@ -437,16 +437,18 @@ function HomeScreen({ xp, streak, onStart, completedModules, moduleXP, onDashboa
   );
 }
 
-function shuffleOptions(q) {
-  var opts = [...q.options];
-  var correctText = opts[q.correct];
-  for (var i = opts.length - 1; i > 0; i--) {
-    var j = Math.floor(Math.random() * (i + 1));
-    var tmp = opts[i]; opts[i] = opts[j]; opts[j] = tmp;
-  }
-  return { ...q, options: opts, correct: opts.indexOf(correctText) };
-}
-var questions = module.questions.map(function(q) { return shuffleOptions(q); });
+function LessonScreen({ module, onComplete, onExit }) {
+  var questions = module.questions;
+  var [current, setCurrent] = useState(0);
+  var [selected, setSelected] = useState(null);
+  var [showResult, setShowResult] = useState(false);
+  var [earnedXP, setEarnedXP] = useState(0);
+  var [correct, setCorrect] = useState(0);
+  var shakeAnim = useRef(new Animated.Value(0)).current;
+  var pulseAnim = useRef(new Animated.Value(1)).current;
+  var fadeAnim = useRef(new Animated.Value(1)).current;
+  var q = questions[current];
+  var progress = ((current + 1) / questions.length) * 100;
 
   function animateCorrect() {
     Animated.sequence([
