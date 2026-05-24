@@ -10,6 +10,7 @@ import { SECURITY_QUESTIONS } from './content/security-questions';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, ScrollView, Animated, KeyboardAvoidingView, Platform, Linking } from 'react-native';
 
 import { T } from './constants/theme';
+import RoadmapScreen from './screens/RoadmapScreen';
 
 const QUESTIONS = [
   { id: 1, question: "A project manager notices the team is consistently missing deadlines. What should they do FIRST?", options: ["Escalate to the sponsor immediately", "Identify the root cause of the delays", "Add more resources to the project", "Update the project schedule"], correct: 1, explanation: "Always identify root cause first. Adding resources or escalating without understanding WHY delays happen will not fix the problem.", xp: 10 },
@@ -308,7 +309,7 @@ function AuthScreen({ onAuth }) {
   );
 }
 
-function HomeScreen({ xp, streak, onStart, completedModules, moduleXP, onDashboard, onPractice, dailyChallengeComplete, onStartDaily, weakAreas }) {
+function HomeScreen({ xp, streak, onStart, completedModules, moduleXP, onDashboard, onPractice, dailyChallengeComplete, onStartDaily, weakAreas, onRoadmap }) {
   var rank = getRank(xp);
   var nextXP = xp >= 200 ? 200 : xp >= 100 ? 200 : 100;
   var pct = Math.min((xp / nextXP) * 100, 100);
@@ -378,10 +379,10 @@ function HomeScreen({ xp, streak, onStart, completedModules, moduleXP, onDashboa
         {TRACKS.map(function(track, tIdx) {
           return (
             <View key={track.id} style={tIdx > 0 ? { marginTop: 24 } : null}>
-              <View style={s.sectionHeader}>
+              <TouchableOpacity style={s.sectionHeader} onPress={function() { onRoadmap(track); }} activeOpacity={0.8}>
                 <Text style={s.sectionTitle}>{track.icon} {track.title}</Text>
                 <Text style={s.sectionSub}>{track.description}</Text>
-              </View>
+              </TouchableOpacity>
               {track.modules.map(function(mod, idx) {
                 var isCompleted = completedModules.indexOf(mod.id) !== -1;
                 var isLocked = idx > 0 && completedModules.indexOf(track.modules[idx - 1].id) === -1;
@@ -1440,6 +1441,7 @@ function TabBar({ tab, onTab }) {
 
 export default function App() {
   var [screen, setScreen] = useState("splash");
+  var [roadmapTrack, setRoadmapTrack] = useState(null);
   var [activeModule, setActiveModule] = useState(null);
   var [xp, setXP] = useState(0);
   var [streak, setStreak] = useState(0);
@@ -1739,6 +1741,7 @@ export default function App() {
     if (date) { AsyncStorage.setItem('certforge_goal_exam_date', date); setGoalExamDate(date); }
     setOnboardingDone(true);
   }} />;
+  if (screen === "roadmap" && roadmapTrack) return <RoadmapScreen track={roadmapTrack} completedModules={completedModules} onSelectModule={function(mod) { setRoadmapTrack(null); setScreen("home"); startLesson(mod); }} onBack={function() { setRoadmapTrack(null); setScreen("home"); }} />;
   if (screen === "splash") return <SplashScreen />;
   if (screen === "lesson") return <LessonScreen module={activeModule} onComplete={finishLesson} onExit={goHome} />;
   if (screen === "result") return (
@@ -1762,7 +1765,7 @@ export default function App() {
     <View style={{ flex: 1, backgroundColor: T.bg }}>
       {tab === "learn" && (screen === "dashboard"
         ? <DashboardScreen xp={xp} completedModules={completedModules} moduleXP={moduleXP} onBack={goHome} goalCert={goalCert} />
-        : <HomeScreen xp={xp} streak={streak} onStart={startLesson} completedModules={completedModules} moduleXP={moduleXP} onDashboard={function() { setScreen("dashboard"); }} onPractice={startPractice} dailyChallengeComplete={dailyChallengeComplete} onStartDaily={startDailyChallenge} weakAreas={weakAreas} />
+        : <HomeScreen xp={xp} streak={streak} onStart={startLesson} completedModules={completedModules} moduleXP={moduleXP} onDashboard={function() { setScreen("dashboard"); }} onPractice={startPractice} dailyChallengeComplete={dailyChallengeComplete} onStartDaily={startDailyChallenge} weakAreas={weakAreas} onRoadmap={function(track) { setRoadmapTrack(track); setScreen("roadmap"); }} />
       )}
       {tab === "community" && <CommunityScreen onOpenPost={function(post) { setActivePost(post); setScreen("post_detail"); }} />}
       {tab === "leaderboard" && <LeaderboardScreen />}
