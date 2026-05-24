@@ -438,7 +438,8 @@ function HomeScreen({ xp, streak, onStart, completedModules, moduleXP, onDashboa
 }
 
 function LessonScreen({ module, onComplete, onExit }) {
-  var questions = module.questions;
+  function shuffleOptions(q) { var opts = q.options.slice(); var correctText = opts[q.correct]; for (var i = opts.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var tmp = opts[i]; opts[i] = opts[j]; opts[j] = tmp; } return Object.assign({}, q, { options: opts, correct: opts.indexOf(correctText) }); }
+  var questions = module.questions.map(shuffleOptions);
   var [current, setCurrent] = useState(0);
   var [selected, setSelected] = useState(null);
   var [showResult, setShowResult] = useState(false);
